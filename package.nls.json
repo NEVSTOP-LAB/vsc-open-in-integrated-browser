@@ -1,5 +1,8 @@
 {
+  "extension.displayName": "Open in Integrated Browser",
+  "extension.description": "Right-click supported files in Explorer or editor tab to open them in VS Code's built-in Simple Browser. File extensions are user-configurable.",
+  "configuration.title": "Open in Integrated Browser",
   "command.openInIntegratedBrowser.open.title": "Open in Integrated Browser",
   "command.openInIntegratedBrowser.category": "Integrated Browser",
-  "configuration.extensions.description": "List of file extensions (without leading dot) that show the **Open in Integrated Browser** command in the context menu. Example: `html`, `pdf`, `svg`. Changes take effect immediately."
+  "configuration.extensions.description": "List of file extensions (without leading dot) that show the **Open in Integrated Browser** command in the context menu. Example: `html`, `pdf`, `md`. Changes take effect immediately."
 }
