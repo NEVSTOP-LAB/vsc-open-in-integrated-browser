@@ -15,16 +15,23 @@ const DEFAULT_EXTENSIONS = [
 ];
 
 suite('Open in Integrated Browser', () => {
+  suiteSetup(async () => {
+    // Activate the extension explicitly so subsequent tests don't depend on
+    // Mocha's test-ordering for activation side-effects.
+    const ext = vscode.extensions.getExtension(EXT_ID);
+    assert.ok(ext, `extension ${EXT_ID} not found`);
+    await ext!.activate();
+  });
+
   suiteTeardown(async () => {
     await vscode.workspace
       .getConfiguration(CONFIG_SECTION)
       .update(CONFIG_KEY, undefined, vscode.ConfigurationTarget.Global);
   });
 
-  test('extension is present and activates', async () => {
+  test('extension is present and activates', () => {
     const ext = vscode.extensions.getExtension(EXT_ID);
     assert.ok(ext, `extension ${EXT_ID} not found`);
-    await ext!.activate();
     assert.strictEqual(ext!.isActive, true);
   });
 
@@ -55,13 +62,51 @@ suite('Open in Integrated Browser', () => {
     assert.deepStrictEqual(result, ['.html', '.pdf', '.svg', '.json']);
   });
 
-  test('configuration changes update the supported extension context', async () => {
-    await vscode.workspace
-      .getConfiguration(CONFIG_SECTION)
-      .update(CONFIG_KEY, ['html'], vscode.ConfigurationTarget.Global);
+  test('configuration changes push updated extensions into the setContext key', async () => {
+    const original = vscode.commands.executeCommand;
+    const setContextCalls: unknown[][] = [];
 
-    await new Promise((r) => setTimeout(r, 100));
+    (vscode.commands as unknown as {
+      executeCommand: typeof vscode.commands.executeCommand;
+    }).executeCommand = (async (command: string, ...args: unknown[]) => {
+      if (command === 'setContext') {
+        setContextCalls.push(args);
+        return undefined;
+      }
+      return original.call(vscode.commands, command, ...args);
+    }) as typeof vscode.commands.executeCommand;
 
+    try {
+      // Wait for the onDidChangeConfiguration listener (which calls setContext)
+      // to fire as a result of the config update.
+      const fired = new Promise<void>((resolve) => {
+        const sub = vscode.workspace.onDidChangeConfiguration((e: vscode.ConfigurationChangeEvent) => {
+          if (e.affectsConfiguration(`${CONFIG_SECTION}.${CONFIG_KEY}`)) {
+            sub.dispose();
+            // Defer one tick so the extension's own listener runs first.
+            setImmediate(resolve);
+          }
+        });
+      });
+
+      await vscode.workspace
+        .getConfiguration(CONFIG_SECTION)
+        .update(CONFIG_KEY, ['html'], vscode.ConfigurationTarget.Global);
+      await fired;
+    } finally {
+      (vscode.commands as unknown as {
+        executeCommand: typeof vscode.commands.executeCommand;
+      }).executeCommand = original;
+    }
+
+    const lastSetContext = setContextCalls.find(
+      (args) => args[0] === 'openInIntegratedBrowser.supportedExtnames',
+    );
+    assert.ok(
+      lastSetContext,
+      'setContext should be invoked for openInIntegratedBrowser.supportedExtnames',
+    );
+    assert.deepStrictEqual(lastSetContext![1], ['.html']);
     assert.deepStrictEqual(getSupportedExtnames(), ['.html']);
   });
 
