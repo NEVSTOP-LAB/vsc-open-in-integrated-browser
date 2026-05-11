@@ -1,5 +1,8 @@
 {
+  "extension.displayName": "在内置浏览器中打开",
+  "extension.description": "在资源管理器或编辑器标签页中右键支持的文件，即可在 VS Code 内置 Simple Browser 中打开。文件扩展名可自行配置。",
+  "configuration.title": "在内置浏览器中打开",
   "command.openInIntegratedBrowser.open.title": "在内置浏览器中打开",
   "command.openInIntegratedBrowser.category": "内置浏览器",
-  "configuration.extensions.description": "在右键菜单中显示 **在内置浏览器中打开** 命令的文件扩展名列表（不含前导点）。示例：`html`、`pdf`、`svg`。修改后立即生效。"
+  "configuration.extensions.description": "在右键菜单中显示 **在内置浏览器中打开** 命令的文件扩展名列表（不含前导点）。示例：`html`、`pdf`、`md`。修改后立即生效。"
 }

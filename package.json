@@ -1,7 +1,7 @@
 {
   "name": "vsc-open-in-integrated-browser",
-  "displayName": "Open in Integrated Browser",
-  "description": "Right-click any HTML / PDF / SVG / image / text file in Explorer or editor tab to open it in VS Code's built-in Simple Browser. File extensions are user-configurable.",
+  "displayName": "%extension.displayName%",
+  "description": "%extension.description%",
   "version": "0.0.1",
   "license": "MIT",
   "publisher": "NEVSTOP-LAB",
@@ -73,7 +73,7 @@
       ]
     },
     "configuration": {
-      "title": "Open in Integrated Browser",
+      "title": "%configuration.title%",
       "properties": {
         "openInIntegratedBrowser.extensions": {
           "type": "array",
@@ -85,17 +85,10 @@
             "html",
             "htm",
             "pdf",
-            "svg",
             "xml",
             "xsl",
             "txt",
-            "md",
-            "webp",
-            "jpg",
-            "jpeg",
-            "png",
-            "gif",
-            "bmp"
+            "md"
           ],
           "markdownDescription": "%configuration.extensions.description%"
         }

@@ -14,8 +14,7 @@ Originally motivated by how cumbersome it is to preview HTML files inside VS Cod
 ## Default supported file extensions
 
 ```
-html, htm, pdf, svg, xml, xsl, txt, md,
-webp, jpg, jpeg, png, gif, bmp
+html, htm, pdf, xml, xsl, txt, md
 ```
 
 ## Configuration
