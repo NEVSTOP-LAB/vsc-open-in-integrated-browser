@@ -1,0 +1,5 @@
+{
+  "command.openInIntegratedBrowser.open.title": "Open in Integrated Browser",
+  "command.openInIntegratedBrowser.category": "Integrated Browser",
+  "configuration.extensions.description": "List of file extensions (without leading dot) that show the **Open in Integrated Browser** command in the context menu. Example: `html`, `pdf`, `svg`. Changes take effect immediately."
+}

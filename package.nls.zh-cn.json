@@ -1,0 +1,5 @@
+{
+  "command.openInIntegratedBrowser.open.title": "在内置浏览器中打开",
+  "command.openInIntegratedBrowser.category": "内置浏览器",
+  "configuration.extensions.description": "在右键菜单中显示 **在内置浏览器中打开** 命令的文件扩展名列表（不含前导点）。示例：`html`、`pdf`、`svg`。修改后立即生效。"
+}
