@@ -10,8 +10,7 @@ const CONFIG_SECTION = 'openInIntegratedBrowser';
 const CONFIG_KEY = 'extensions';
 
 const DEFAULT_EXTENSIONS = [
-  'html', 'htm', 'pdf', 'svg', 'xml', 'xsl', 'txt', 'md',
-  'webp', 'jpg', 'jpeg', 'png', 'gif', 'bmp',
+  'html', 'htm', 'pdf', 'xml', 'xsl', 'txt', 'md',
 ];
 
 suite('Open in Integrated Browser', () => {
