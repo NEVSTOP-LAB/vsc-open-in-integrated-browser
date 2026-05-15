@@ -182,10 +182,10 @@ suite('Open in Integrated Browser', () => {
   });
 
   test('getNextHtmlEditorAssociations sets *.html to simple browser when enabled', () => {
-    const current = { '*.pdf': 'simpleBrowser.view' };
+    const current = { '*.htm': 'simpleBrowser.view' };
     const next = getNextHtmlEditorAssociations(current, true);
     assert.deepStrictEqual(next, {
-      '*.pdf': 'simpleBrowser.view',
+      '*.htm': 'simpleBrowser.view',
       '*.html': 'simpleBrowser.view',
     });
   });
@@ -193,18 +193,18 @@ suite('Open in Integrated Browser', () => {
   test('getNextHtmlEditorAssociations removes *.html only when it points to simple browser', () => {
     const current = {
       '*.html': 'simpleBrowser.view',
-      '*.pdf': 'simpleBrowser.view',
+      '*.htm': 'simpleBrowser.view',
     };
     const next = getNextHtmlEditorAssociations(current, false);
     assert.deepStrictEqual(next, {
-      '*.pdf': 'simpleBrowser.view',
+      '*.htm': 'simpleBrowser.view',
     });
   });
 
   test('getNextHtmlEditorAssociations keeps *.html when it is configured to another editor', () => {
     const current = {
       '*.html': 'default',
-      '*.pdf': 'simpleBrowser.view',
+      '*.htm': 'simpleBrowser.view',
     };
     const next = getNextHtmlEditorAssociations(current, false);
     assert.deepStrictEqual(next, current);
