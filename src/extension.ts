@@ -1,3 +1,4 @@
+import * as path from 'path';
 import * as vscode from 'vscode';
 
 const COMMAND_ID = 'openInIntegratedBrowser.open';
@@ -8,6 +9,8 @@ const CONTEXT_KEY = 'openInIntegratedBrowser.supportedExtnames';
 const WORKBENCH_CONFIG_SECTION = 'workbench';
 const WORKBENCH_EDITOR_ASSOCIATIONS_KEY = 'editorAssociations';
 const SIMPLE_BROWSER_VIEW_TYPE = 'simpleBrowser.view';
+const INTEGRATED_BROWSER_EDITOR_VIEW_TYPE =
+  'openInIntegratedBrowser.integratedBrowserEditor';
 const HTML_FILE_PATTERN = '*.html';
 const INITIALIZED_DEFAULT_ASSOCIATION_KEY =
   'openInIntegratedBrowser.defaultHtmlAssociationInitialized';
@@ -69,11 +72,11 @@ export function getNextHtmlEditorAssociations(
   const next = { ...current };
 
   if (useIntegratedBrowser) {
-    next[HTML_FILE_PATTERN] = SIMPLE_BROWSER_VIEW_TYPE;
+    next[HTML_FILE_PATTERN] = INTEGRATED_BROWSER_EDITOR_VIEW_TYPE;
     return next;
   }
 
-  if (next[HTML_FILE_PATTERN] === SIMPLE_BROWSER_VIEW_TYPE) {
+  if (next[HTML_FILE_PATTERN] === INTEGRATED_BROWSER_EDITOR_VIEW_TYPE) {
     delete next[HTML_FILE_PATTERN];
   }
   return next;
@@ -137,6 +140,89 @@ async function updateContextKey(): Promise<void> {
   );
 }
 
+interface IntegratedBrowserDocument extends vscode.CustomDocument {
+  readonly uri: vscode.Uri;
+}
+
+function createIntegratedBrowserDocument(
+  uri: vscode.Uri,
+): IntegratedBrowserDocument {
+  return {
+    uri,
+    dispose(): void {
+      // no-op
+    },
+  };
+}
+
+function getIntegratedBrowserSourceUri(
+  uri: vscode.Uri,
+  webview: vscode.Webview,
+): string {
+  if (uri.scheme === 'file') {
+    return webview.asWebviewUri(uri).toString();
+  }
+  return uri.toString(true);
+}
+
+function escapeHtmlAttribute(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
+}
+
+function registerIntegratedBrowserEditor(context: vscode.ExtensionContext): void {
+  const provider: vscode.CustomReadonlyEditorProvider<IntegratedBrowserDocument> = {
+    openCustomDocument: async (uri: vscode.Uri) =>
+      createIntegratedBrowserDocument(uri),
+    resolveCustomEditor: async (
+      document: IntegratedBrowserDocument,
+      webviewPanel: vscode.WebviewPanel,
+    ) => {
+      webviewPanel.webview.options = {
+        enableScripts: true,
+        localResourceRoots:
+          document.uri.scheme === 'file'
+            ? [vscode.Uri.file(path.dirname(document.uri.fsPath))]
+            : [],
+      };
+
+      const src = escapeHtmlAttribute(
+        getIntegratedBrowserSourceUri(document.uri, webviewPanel.webview),
+      );
+      webviewPanel.webview.html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    html, body, iframe { width: 100%; height: 100%; margin: 0; padding: 0; border: 0; background: transparent; }
+  </style>
+</head>
+<body>
+  <iframe src="${src}" allow="clipboard-read; clipboard-write" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-downloads"></iframe>
+</body>
+</html>`;
+    },
+  };
+
+  context.subscriptions.push(
+    vscode.window.registerCustomEditorProvider(
+      INTEGRATED_BROWSER_EDITOR_VIEW_TYPE,
+      provider,
+      {
+        webviewOptions: {
+          retainContextWhenHidden: true,
+        },
+        supportsMultipleEditorsPerDocument: true,
+      },
+    ),
+  );
+}
+
 /**
  * Open the given resource in the VS Code built-in Simple Browser.
  * Falls back to `vscode.open` if the Simple Browser API is unavailable.
@@ -168,6 +254,8 @@ export async function openInIntegratedBrowser(
 }
 
 export function activate(context: vscode.ExtensionContext): void {
+  registerIntegratedBrowserEditor(context);
+
   context.subscriptions.push(
     vscode.commands.registerCommand(COMMAND_ID, openInIntegratedBrowser),
   );

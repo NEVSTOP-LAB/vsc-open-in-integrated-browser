@@ -43,6 +43,18 @@
         "category": "%command.openInIntegratedBrowser.category%"
       }
     ],
+    "customEditors": [
+      {
+        "viewType": "openInIntegratedBrowser.integratedBrowserEditor",
+        "displayName": "%customEditor.openInIntegratedBrowser.displayName%",
+        "selector": [
+          {
+            "filenamePattern": "*.html"
+          }
+        ],
+        "priority": "option"
+      }
+    ],
     "menus": {
       "explorer/context": [
         {

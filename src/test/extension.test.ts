@@ -13,6 +13,8 @@ const COMMAND_ID = 'openInIntegratedBrowser.open';
 const CONFIG_SECTION = 'openInIntegratedBrowser';
 const CONFIG_KEY = 'extensions';
 const CONFIG_DEFAULT_HTML_EDITOR_KEY = 'setHtmlAsDefaultEditor';
+const INTEGRATED_BROWSER_EDITOR_VIEW_TYPE =
+  'openInIntegratedBrowser.integratedBrowserEditor';
 
 const DEFAULT_EXTENSIONS = [
   'html', 'htm', 'pdf', 'xml', 'xsl', 'txt', 'md',
@@ -181,18 +183,18 @@ suite('Open in Integrated Browser', () => {
     assert.ok(calls.includes('vscode.open'));
   });
 
-  test('getNextHtmlEditorAssociations sets *.html to simple browser when enabled', () => {
+  test('getNextHtmlEditorAssociations sets *.html to integrated browser editor when enabled', () => {
     const current = { '*.htm': 'simpleBrowser.view' };
     const next = getNextHtmlEditorAssociations(current, true);
     assert.deepStrictEqual(next, {
       '*.htm': 'simpleBrowser.view',
-      '*.html': 'simpleBrowser.view',
+      '*.html': INTEGRATED_BROWSER_EDITOR_VIEW_TYPE,
     });
   });
 
-  test('getNextHtmlEditorAssociations removes *.html only when it points to simple browser', () => {
+  test('getNextHtmlEditorAssociations removes *.html only when it points to integrated browser editor', () => {
     const current = {
-      '*.html': 'simpleBrowser.view',
+      '*.html': INTEGRATED_BROWSER_EDITOR_VIEW_TYPE,
       '*.htm': 'simpleBrowser.view',
     };
     const next = getNextHtmlEditorAssociations(current, false);
