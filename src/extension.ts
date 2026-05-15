@@ -155,6 +155,16 @@ function createIntegratedBrowserDocument(
   };
 }
 
+function getLocalResourceRoots(uri: vscode.Uri): vscode.Uri[] {
+  if (uri.scheme !== 'file') {
+    return [];
+  }
+
+  const roots = vscode.workspace.workspaceFolders?.map((folder) => folder.uri) ?? [];
+  roots.push(vscode.Uri.file(path.dirname(uri.fsPath)));
+  return roots;
+}
+
 function getIntegratedBrowserSourceUri(
   uri: vscode.Uri,
   webview: vscode.Webview,
@@ -184,10 +194,7 @@ function registerIntegratedBrowserEditor(context: vscode.ExtensionContext): void
     ) => {
       webviewPanel.webview.options = {
         enableScripts: true,
-        localResourceRoots:
-          document.uri.scheme === 'file'
-            ? [vscode.Uri.file(path.dirname(document.uri.fsPath))]
-            : [],
+        localResourceRoots: getLocalResourceRoots(document.uri),
       };
 
       const src = escapeHtml(
@@ -199,11 +206,11 @@ function registerIntegratedBrowserEditor(context: vscode.ExtensionContext): void
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    html, body, iframe { width: 100%; height: 100%; margin: 0; padding: 0; border: 0; background: transparent; }
+    html, body, iframe { width: 100%; height: 100%; margin: 0; padding: 0; border: 0; background: var(--vscode-editor-background); }
   </style>
 </head>
 <body>
-  <iframe title="Integrated Browser Preview" src="${src}" allow="clipboard-read; clipboard-write" sandbox="allow-scripts allow-forms"></iframe>
+  <iframe title="Integrated Browser Preview" src="${src}" allow="clipboard-read; clipboard-write" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
 </body>
 </html>`;
     },
