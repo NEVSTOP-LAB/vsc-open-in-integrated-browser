@@ -182,10 +182,10 @@ suite('Open in Integrated Browser', () => {
   });
 
   test('getNextHtmlEditorAssociations sets *.html to simple browser when enabled', () => {
-    const current = { '*.md': 'vscode.markdown.preview.editor' };
+    const current = { '*.pdf': 'simpleBrowser.view' };
     const next = getNextHtmlEditorAssociations(current, true);
     assert.deepStrictEqual(next, {
-      '*.md': 'vscode.markdown.preview.editor',
+      '*.pdf': 'simpleBrowser.view',
       '*.html': 'simpleBrowser.view',
     });
   });
@@ -193,18 +193,18 @@ suite('Open in Integrated Browser', () => {
   test('getNextHtmlEditorAssociations removes *.html only when it points to simple browser', () => {
     const current = {
       '*.html': 'simpleBrowser.view',
-      '*.md': 'vscode.markdown.preview.editor',
+      '*.pdf': 'simpleBrowser.view',
     };
     const next = getNextHtmlEditorAssociations(current, false);
     assert.deepStrictEqual(next, {
-      '*.md': 'vscode.markdown.preview.editor',
+      '*.pdf': 'simpleBrowser.view',
     });
   });
 
   test('getNextHtmlEditorAssociations keeps *.html when it is configured to another editor', () => {
     const current = {
       '*.html': 'default',
-      '*.md': 'vscode.markdown.preview.editor',
+      '*.pdf': 'simpleBrowser.view',
     };
     const next = getNextHtmlEditorAssociations(current, false);
     assert.deepStrictEqual(next, current);
