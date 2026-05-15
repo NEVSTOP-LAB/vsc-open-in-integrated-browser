@@ -3,6 +3,8 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 import {
+  getAutoAssociateExtnames,
+  getNextAutoAssociations,
   getNextHtmlEditorAssociations,
   getSupportedExtnames,
   openInIntegratedBrowser,
@@ -13,6 +15,7 @@ const COMMAND_ID = 'openInIntegratedBrowser.open';
 const CONFIG_SECTION = 'openInIntegratedBrowser';
 const CONFIG_KEY = 'extensions';
 const CONFIG_DEFAULT_HTML_EDITOR_KEY = 'setHtmlAsDefaultEditor';
+const CONFIG_AUTO_ASSOCIATE_KEY = 'autoAssociateExtensions';
 const INTEGRATED_BROWSER_EDITOR_VIEW_TYPE =
   'openInIntegratedBrowser.integratedBrowserEditor';
 
@@ -33,6 +36,9 @@ suite('Open in Integrated Browser', () => {
     await vscode.workspace
       .getConfiguration(CONFIG_SECTION)
       .update(CONFIG_KEY, undefined, vscode.ConfigurationTarget.Global);
+    await vscode.workspace
+      .getConfiguration(CONFIG_SECTION)
+      .update(CONFIG_AUTO_ASSOCIATE_KEY, undefined, vscode.ConfigurationTarget.Global);
   });
 
   test('extension is present and activates', () => {
@@ -53,6 +59,12 @@ suite('Open in Integrated Browser', () => {
     const cfg = vscode.workspace.getConfiguration(CONFIG_SECTION);
     const value = cfg.get<string[]>(CONFIG_KEY);
     assert.deepStrictEqual(value, DEFAULT_EXTENSIONS);
+  });
+
+  test('default autoAssociateExtensions configuration is empty', () => {
+    const cfg = vscode.workspace.getConfiguration(CONFIG_SECTION);
+    const value = cfg.get<string[]>(CONFIG_AUTO_ASSOCIATE_KEY);
+    assert.deepStrictEqual(value, []);
   });
 
   test('default html editor association setting is enabled', () => {
@@ -210,5 +222,52 @@ suite('Open in Integrated Browser', () => {
     };
     const next = getNextHtmlEditorAssociations(current, false);
     assert.deepStrictEqual(next, current);
+  });
+
+  test('getAutoAssociateExtnames normalizes user-configured extensions', async () => {
+    await vscode.workspace
+      .getConfiguration(CONFIG_SECTION)
+      .update(
+        CONFIG_AUTO_ASSOCIATE_KEY,
+        ['PDF', '.SVG', ' html ', 'html', ''],
+        vscode.ConfigurationTarget.Global,
+      );
+
+    const result = getAutoAssociateExtnames();
+    assert.deepStrictEqual(result, ['pdf', 'svg', 'html']);
+  });
+
+  test('getNextAutoAssociations adds associations for new extensions', () => {
+    const current = { '*.htm': 'simpleBrowser.view' };
+    const next = getNextAutoAssociations(current, [], ['pdf', 'svg']);
+    assert.deepStrictEqual(next, {
+      '*.htm': 'simpleBrowser.view',
+      '*.pdf': INTEGRATED_BROWSER_EDITOR_VIEW_TYPE,
+      '*.svg': INTEGRATED_BROWSER_EDITOR_VIEW_TYPE,
+    });
+  });
+
+  test('getNextAutoAssociations removes associations for extensions no longer in list', () => {
+    const current = {
+      '*.pdf': INTEGRATED_BROWSER_EDITOR_VIEW_TYPE,
+      '*.svg': INTEGRATED_BROWSER_EDITOR_VIEW_TYPE,
+      '*.htm': 'simpleBrowser.view',
+    };
+    const next = getNextAutoAssociations(current, ['pdf', 'svg'], ['pdf']);
+    assert.deepStrictEqual(next, {
+      '*.pdf': INTEGRATED_BROWSER_EDITOR_VIEW_TYPE,
+      '*.htm': 'simpleBrowser.view',
+    });
+  });
+
+  test('getNextAutoAssociations does not remove associations pointing to another editor', () => {
+    const current = {
+      '*.pdf': 'some.other.editor',
+      '*.svg': INTEGRATED_BROWSER_EDITOR_VIEW_TYPE,
+    };
+    const next = getNextAutoAssociations(current, ['pdf', 'svg'], []);
+    assert.deepStrictEqual(next, {
+      '*.pdf': 'some.other.editor',
+    });
   });
 });

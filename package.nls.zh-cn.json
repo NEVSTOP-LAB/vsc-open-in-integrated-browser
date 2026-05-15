@@ -6,5 +6,6 @@
   "command.openInIntegratedBrowser.category": "内置浏览器",
   "customEditor.openInIntegratedBrowser.displayName": "内置浏览器",
   "configuration.extensions.description": "在右键菜单中显示 **在内置浏览器中打开** 命令的文件扩展名列表（不含前导点）。示例：`html`、`pdf`、`svg`。修改后立即生效。",
+  "configuration.autoAssociateExtensions.description": "指定需要自动关联内置浏览器编辑器的文件扩展名列表（不含前导点）。列表中的扩展名会自动写入 `workbench.editorAssociations`，使对应文件默认在内置浏览器中打开。示例：`html`、`pdf`、`svg`。修改后立即生效。",
   "configuration.setHtmlAsDefaultEditor.description": "启用后，`*.html` 文件默认使用此扩展提供的内置浏览器编辑器打开。安装后会自动应用该默认值，也可随时在设置中关闭或重新开启。"
 }

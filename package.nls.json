@@ -6,5 +6,6 @@
   "command.openInIntegratedBrowser.category": "Integrated Browser",
   "customEditor.openInIntegratedBrowser.displayName": "Integrated Browser",
   "configuration.extensions.description": "List of file extensions (without leading dot) that show the **Open in Integrated Browser** command in the context menu. Example: `html`, `pdf`, `svg`. Changes take effect immediately.",
+  "configuration.autoAssociateExtensions.description": "List of file extensions (without leading dot) that should automatically open in the Integrated Browser editor. Files with these extensions will have `workbench.editorAssociations` updated to use this extension's editor as their default. Example: `html`, `pdf`, `svg`. Changes take effect immediately.",
   "configuration.setHtmlAsDefaultEditor.description": "When enabled, `*.html` files default to this extension's Integrated Browser editor. This default is applied automatically after installation and can be toggled anytime from Settings."
 }

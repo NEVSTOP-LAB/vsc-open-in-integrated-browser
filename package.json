@@ -48,9 +48,12 @@
         "viewType": "openInIntegratedBrowser.integratedBrowserEditor",
         "displayName": "%customEditor.openInIntegratedBrowser.displayName%",
         "selector": [
-          {
-            "filenamePattern": "*.html"
-          }
+          { "filenamePattern": "*.html" },
+          { "filenamePattern": "*.htm" },
+          { "filenamePattern": "*.pdf" },
+          { "filenamePattern": "*.svg" },
+          { "filenamePattern": "*.xml" },
+          { "filenamePattern": "*.xsl" }
         ],
         "priority": "option"
       }
@@ -102,6 +105,15 @@
             "xsl"
           ],
           "markdownDescription": "%configuration.extensions.description%"
+        },
+        "openInIntegratedBrowser.autoAssociateExtensions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true,
+          "default": [],
+          "markdownDescription": "%configuration.autoAssociateExtensions.description%"
         },
         "openInIntegratedBrowser.setHtmlAsDefaultEditor": {
           "type": "boolean",
