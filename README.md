@@ -8,13 +8,14 @@ Originally motivated by how cumbersome it is to preview HTML files inside VS Cod
 
 - Right-click any supported file in the **Explorer**, on an **editor tab**, or in the **editor area** → **Open in Integrated Browser**.
 - Opens the file using VS Code's built-in [Simple Browser](https://code.visualstudio.com/api/extension-guides/webview#simple-browser) via `simpleBrowser.api.open` (falls back to `vscode.open` when unavailable).
+- After installation, `*.html` files are set to open in this extension's integrated browser editor by default (can be turned off or turned on again from Settings).
 - **Fully configurable file types** via the `openInIntegratedBrowser.extensions` setting.
 - Localized in **English** and **简体中文**.
 
 ## Default supported file extensions
 
 ```
-html, htm, pdf, xml, xsl, txt, md
+html, htm, pdf, svg, xml, xsl
 ```
 
 ## Configuration
@@ -22,13 +23,14 @@ html, htm, pdf, xml, xsl, txt, md
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
 | `openInIntegratedBrowser.extensions` | `string[]` | see above | File extensions (without leading dot) that show the command in the context menu. |
+| `openInIntegratedBrowser.setHtmlAsDefaultEditor` | `boolean` | `true` | Controls whether `*.html` uses this extension's integrated browser editor as default editor. Applied automatically after installation, and can be toggled later in Settings. |
 
 Example `settings.json`:
 
 ```jsonc
 {
   "openInIntegratedBrowser.extensions": [
-    "html", "htm", "pdf", "svg", "md"
+    "html", "htm", "pdf", "svg", "xml"
   ]
 }
 ```
