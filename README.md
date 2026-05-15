@@ -15,7 +15,7 @@ Originally motivated by how cumbersome it is to preview HTML files inside VS Cod
 ## Default supported file extensions
 
 ```
-html, htm, pdf, svg, xml, xsl, txt, md
+html, htm, pdf, svg, xml, xsl
 ```
 
 ## Configuration
@@ -30,7 +30,7 @@ Example `settings.json`:
 ```jsonc
 {
   "openInIntegratedBrowser.extensions": [
-    "html", "htm", "pdf", "svg", "md"
+    "html", "htm", "pdf", "svg", "xml"
   ]
 }
 ```

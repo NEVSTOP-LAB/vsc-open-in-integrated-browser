@@ -99,9 +99,7 @@
             "pdf",
             "svg",
             "xml",
-            "xsl",
-            "txt",
-            "md"
+            "xsl"
           ],
           "markdownDescription": "%configuration.extensions.description%"
         },

@@ -17,7 +17,7 @@ const INTEGRATED_BROWSER_EDITOR_VIEW_TYPE =
   'openInIntegratedBrowser.integratedBrowserEditor';
 
 const DEFAULT_EXTENSIONS = [
-  'html', 'htm', 'pdf', 'svg', 'xml', 'xsl', 'txt', 'md',
+  'html', 'htm', 'pdf', 'svg', 'xml', 'xsl',
 ];
 
 suite('Open in Integrated Browser', () => {
