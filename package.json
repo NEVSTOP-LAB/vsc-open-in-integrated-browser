@@ -95,6 +95,7 @@
         "openInIntegratedBrowser.setHtmlAsDefaultEditor": {
           "type": "boolean",
           "default": true,
+          "scope": "application",
           "markdownDescription": "%configuration.setHtmlAsDefaultEditor.description%"
         }
       }
