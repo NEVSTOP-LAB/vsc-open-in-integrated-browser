@@ -203,7 +203,7 @@ function registerIntegratedBrowserEditor(context: vscode.ExtensionContext): void
   </style>
 </head>
 <body>
-  <iframe src="${src}" allow="clipboard-read; clipboard-write" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-downloads"></iframe>
+  <iframe title="Integrated Browser Preview" src="${src}" allow="clipboard-read; clipboard-write" sandbox="allow-scripts allow-forms allow-popups"></iframe>
 </body>
 </html>`;
     },
