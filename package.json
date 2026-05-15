@@ -91,6 +91,11 @@
             "md"
           ],
           "markdownDescription": "%configuration.extensions.description%"
+        },
+        "openInIntegratedBrowser.setHtmlAsDefaultEditor": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%configuration.setHtmlAsDefaultEditor.description%"
         }
       }
     }

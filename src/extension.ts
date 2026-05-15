@@ -3,7 +3,14 @@ import * as vscode from 'vscode';
 const COMMAND_ID = 'openInIntegratedBrowser.open';
 const CONFIG_SECTION = 'openInIntegratedBrowser';
 const CONFIG_KEY = 'extensions';
+const CONFIG_DEFAULT_HTML_EDITOR_KEY = 'setHtmlAsDefaultEditor';
 const CONTEXT_KEY = 'openInIntegratedBrowser.supportedExtnames';
+const WORKBENCH_CONFIG_SECTION = 'workbench';
+const WORKBENCH_EDITOR_ASSOCIATIONS_KEY = 'editorAssociations';
+const SIMPLE_BROWSER_VIEW_TYPE = 'simpleBrowser.view';
+const HTML_FILE_PATTERN = '*.html';
+const INITIALIZED_DEFAULT_ASSOCIATION_KEY =
+  'openInIntegratedBrowser.defaultHtmlAssociationInitialized';
 
 /**
  * Read user-configured file extensions and normalize them to the form
@@ -35,6 +42,91 @@ export function getSupportedExtnames(): string[] {
     }
   }
   return result;
+}
+
+function getEditorAssociations(): Record<string, string> {
+  const raw = vscode.workspace
+    .getConfiguration(WORKBENCH_CONFIG_SECTION)
+    .get<unknown>(WORKBENCH_EDITOR_ASSOCIATIONS_KEY, {});
+
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return {};
+  }
+
+  const result: Record<string, string> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof value === 'string') {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
+export function getNextHtmlEditorAssociations(
+  current: Record<string, string>,
+  useIntegratedBrowser: boolean,
+): Record<string, string> {
+  const next = { ...current };
+
+  if (useIntegratedBrowser) {
+    next[HTML_FILE_PATTERN] = SIMPLE_BROWSER_VIEW_TYPE;
+    return next;
+  }
+
+  if (next[HTML_FILE_PATTERN] === SIMPLE_BROWSER_VIEW_TYPE) {
+    delete next[HTML_FILE_PATTERN];
+  }
+  return next;
+}
+
+function hasAssociationChanges(
+  current: Record<string, string>,
+  next: Record<string, string>,
+): boolean {
+  const currentKeys = Object.keys(current);
+  const nextKeys = Object.keys(next);
+  if (currentKeys.length !== nextKeys.length) {
+    return true;
+  }
+  return nextKeys.some((key) => current[key] !== next[key]);
+}
+
+async function applyHtmlEditorAssociationFromSetting(): Promise<void> {
+  const useIntegratedBrowser = vscode.workspace
+    .getConfiguration(CONFIG_SECTION)
+    .get<boolean>(CONFIG_DEFAULT_HTML_EDITOR_KEY, true);
+
+  const currentAssociations = getEditorAssociations();
+  const nextAssociations = getNextHtmlEditorAssociations(
+    currentAssociations,
+    useIntegratedBrowser,
+  );
+  if (!hasAssociationChanges(currentAssociations, nextAssociations)) {
+    return;
+  }
+
+  await vscode.workspace
+    .getConfiguration(WORKBENCH_CONFIG_SECTION)
+    .update(
+      WORKBENCH_EDITOR_ASSOCIATIONS_KEY,
+      nextAssociations,
+      vscode.ConfigurationTarget.Global,
+    );
+}
+
+async function initializeDefaultHtmlAssociation(
+  context: vscode.ExtensionContext,
+): Promise<void> {
+  const initialized = context.globalState.get<boolean>(
+    INITIALIZED_DEFAULT_ASSOCIATION_KEY,
+    false,
+  );
+  if (initialized) {
+    return;
+  }
+
+  await applyHtmlEditorAssociationFromSetting();
+  await context.globalState.update(INITIALIZED_DEFAULT_ASSOCIATION_KEY, true);
 }
 
 async function updateContextKey(): Promise<void> {
@@ -85,10 +177,18 @@ export function activate(context: vscode.ExtensionContext): void {
       if (e.affectsConfiguration(`${CONFIG_SECTION}.${CONFIG_KEY}`)) {
         void updateContextKey();
       }
+      if (
+        e.affectsConfiguration(
+          `${CONFIG_SECTION}.${CONFIG_DEFAULT_HTML_EDITOR_KEY}`,
+        )
+      ) {
+        void applyHtmlEditorAssociationFromSetting();
+      }
     }),
   );
 
   void updateContextKey();
+  void initializeDefaultHtmlAssociation(context);
 }
 
 export function deactivate(): void {

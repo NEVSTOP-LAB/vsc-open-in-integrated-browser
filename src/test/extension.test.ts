@@ -2,12 +2,17 @@ import * as assert from 'assert';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import { getSupportedExtnames, openInIntegratedBrowser } from '../extension';
+import {
+  getNextHtmlEditorAssociations,
+  getSupportedExtnames,
+  openInIntegratedBrowser,
+} from '../extension';
 
 const EXT_ID = 'NEVSTOP-LAB.vsc-open-in-integrated-browser';
 const COMMAND_ID = 'openInIntegratedBrowser.open';
 const CONFIG_SECTION = 'openInIntegratedBrowser';
 const CONFIG_KEY = 'extensions';
+const CONFIG_DEFAULT_HTML_EDITOR_KEY = 'setHtmlAsDefaultEditor';
 
 const DEFAULT_EXTENSIONS = [
   'html', 'htm', 'pdf', 'xml', 'xsl', 'txt', 'md',
@@ -46,6 +51,12 @@ suite('Open in Integrated Browser', () => {
     const cfg = vscode.workspace.getConfiguration(CONFIG_SECTION);
     const value = cfg.get<string[]>(CONFIG_KEY);
     assert.deepStrictEqual(value, DEFAULT_EXTENSIONS);
+  });
+
+  test('default html editor association setting is enabled', () => {
+    const cfg = vscode.workspace.getConfiguration(CONFIG_SECTION);
+    const value = cfg.get<boolean>(CONFIG_DEFAULT_HTML_EDITOR_KEY);
+    assert.strictEqual(value, true);
   });
 
   test('getSupportedExtnames normalizes user-configured extensions', async () => {
@@ -168,5 +179,34 @@ suite('Open in Integrated Browser', () => {
 
     assert.ok(calls.includes('simpleBrowser.api.open'));
     assert.ok(calls.includes('vscode.open'));
+  });
+
+  test('getNextHtmlEditorAssociations sets *.html to simple browser when enabled', () => {
+    const current = { '*.md': 'vscode.markdown.preview.editor' };
+    const next = getNextHtmlEditorAssociations(current, true);
+    assert.deepStrictEqual(next, {
+      '*.md': 'vscode.markdown.preview.editor',
+      '*.html': 'simpleBrowser.view',
+    });
+  });
+
+  test('getNextHtmlEditorAssociations removes *.html only when it points to simple browser', () => {
+    const current = {
+      '*.html': 'simpleBrowser.view',
+      '*.md': 'vscode.markdown.preview.editor',
+    };
+    const next = getNextHtmlEditorAssociations(current, false);
+    assert.deepStrictEqual(next, {
+      '*.md': 'vscode.markdown.preview.editor',
+    });
+  });
+
+  test('getNextHtmlEditorAssociations keeps *.html when it is configured to another editor', () => {
+    const current = {
+      '*.html': 'default',
+      '*.md': 'vscode.markdown.preview.editor',
+    };
+    const next = getNextHtmlEditorAssociations(current, false);
+    assert.deepStrictEqual(next, current);
   });
 });
