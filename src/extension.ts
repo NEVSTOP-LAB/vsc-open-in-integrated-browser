@@ -165,7 +165,7 @@ function getIntegratedBrowserSourceUri(
   return uri.toString(true);
 }
 
-function escapeHtmlAttribute(value: string): string {
+function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
     .replaceAll('"', '&quot;')
@@ -190,7 +190,7 @@ function registerIntegratedBrowserEditor(context: vscode.ExtensionContext): void
             : [],
       };
 
-      const src = escapeHtmlAttribute(
+      const src = escapeHtml(
         getIntegratedBrowserSourceUri(document.uri, webviewPanel.webview),
       );
       webviewPanel.webview.html = `<!DOCTYPE html>
@@ -203,7 +203,7 @@ function registerIntegratedBrowserEditor(context: vscode.ExtensionContext): void
   </style>
 </head>
 <body>
-  <iframe title="Integrated Browser Preview" src="${src}" allow="clipboard-read; clipboard-write" sandbox="allow-scripts allow-forms allow-popups"></iframe>
+  <iframe title="Integrated Browser Preview" src="${src}" allow="clipboard-read; clipboard-write" sandbox="allow-scripts allow-forms"></iframe>
 </body>
 </html>`;
     },
