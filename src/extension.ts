@@ -379,25 +379,8 @@ export function activate(context: vscode.ExtensionContext): void {
   void applyAutoAssociations(context);
 }
 
-export async function deactivate(): Promise<void> {
-  if (!moduleContext) {
-    return;
-  }
-
-  // Clean up auto-associations that were written by this extension.
-  const prevExtnames = moduleContext.globalState.get<string[]>(MANAGED_AUTO_ASSOC_STATE_KEY, []);
-  if (prevExtnames.length > 0) {
-    const currentAssociations = getEditorAssociations();
-    const nextAssociations = getNextAutoAssociations(currentAssociations, prevExtnames, []);
-    if (hasAssociationChanges(currentAssociations, nextAssociations)) {
-      await vscode.workspace
-        .getConfiguration(WORKBENCH_CONFIG_SECTION)
-        .update(
-          WORKBENCH_EDITOR_ASSOCIATIONS_KEY,
-          nextAssociations,
-          vscode.ConfigurationTarget.Global,
-        );
-    }
-    await moduleContext.globalState.update(MANAGED_AUTO_ASSOC_STATE_KEY, []);
-  }
+export function deactivate(): void {
+  // Intentionally do not clean up editor associations here.
+  // `deactivate()` runs during normal shutdown/reload as well as disable,
+  // and is not a reliable uninstall hook.
 }
