@@ -1,4 +1,5 @@
 const esbuild = require('esbuild');
+const fs = require('fs');
 
 const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
@@ -15,6 +16,7 @@ const options = {
   outfile: 'dist/extension.js',
   external: ['vscode'],
   logLevel: 'info',
+  metafile: !production,
 };
 
 (async () => {
@@ -22,7 +24,10 @@ const options = {
     const ctx = await esbuild.context(options);
     await ctx.watch();
   } else {
-    await esbuild.build(options);
+    const result = await esbuild.build(options);
+    if (!production && result.metafile) {
+      fs.writeFileSync('dist/metafile.json', JSON.stringify(result.metafile));
+    }
   }
 })().catch((err) => {
   console.error(err);

@@ -12,5 +12,6 @@ tsconfig.json
 **/*.map
 **/*.ts
 !dist/**
+dist/metafile.json
 .github/**
 images/icon.svg

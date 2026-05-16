@@ -18,6 +18,9 @@ const INITIALIZED_DEFAULT_ASSOCIATION_KEY =
 const MANAGED_AUTO_ASSOC_STATE_KEY =
   'openInIntegratedBrowser.managedAutoAssociations';
 
+/** Module-level context reference, set during activation and used in deactivate. */
+let moduleContext: vscode.ExtensionContext | undefined;
+
 /**
  * Read user-configured file extensions and normalize them to the form
  * `resourceExtname` uses in `when` clauses (lowercase, leading dot).
@@ -239,9 +242,14 @@ function getLocalResourceRoots(uri: vscode.Uri): vscode.Uri[] {
     return [];
   }
 
-  const roots = vscode.workspace.workspaceFolders?.map((folder) => folder.uri) ?? [];
-  roots.push(vscode.Uri.file(path.dirname(uri.fsPath)));
-  return roots;
+  // Restrict to only the workspace folder that contains the file, falling back
+  // to the file's parent directory, to avoid exposing unrelated workspace roots
+  // in multi-root workspace scenarios.
+  const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
+  if (workspaceFolder) {
+    return [workspaceFolder.uri];
+  }
+  return [vscode.Uri.file(path.dirname(uri.fsPath))];
 }
 
 function getIntegratedBrowserSourceUri(
@@ -289,7 +297,7 @@ function registerIntegratedBrowserEditor(context: vscode.ExtensionContext): void
   </style>
 </head>
 <body>
-  <iframe title="Integrated Browser Preview" src="${src}" allow="clipboard-read; clipboard-write" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
+  <iframe title="Integrated Browser Preview" src="${src}" allow="clipboard-read; clipboard-write" sandbox="allow-scripts allow-forms"></iframe>
 </body>
 </html>`;
     },
@@ -303,7 +311,7 @@ function registerIntegratedBrowserEditor(context: vscode.ExtensionContext): void
         webviewOptions: {
           retainContextWhenHidden: true,
         },
-        supportsMultipleEditorsPerDocument: true,
+        supportsMultipleEditorsPerDocument: false,
       },
     ),
   );
@@ -322,7 +330,7 @@ export async function openInIntegratedBrowser(
   }
   if (!target) {
     void vscode.window.showWarningMessage(
-      'Open in Integrated Browser: no file selected.',
+      vscode.l10n.t('Open in Integrated Browser: no file selected.'),
     );
     return;
   }
@@ -333,13 +341,15 @@ export async function openInIntegratedBrowser(
       preserveFocus: false,
       viewColumn: vscode.ViewColumn.Beside,
     });
-  } catch {
+  } catch (err) {
+    console.error('[OpenInIntegratedBrowser] simpleBrowser.api.open failed, falling back to vscode.open:', err);
     // Fallback: vscode.open opens with the default editor for the resource.
     await vscode.commands.executeCommand('vscode.open', target);
   }
 }
 
 export function activate(context: vscode.ExtensionContext): void {
+  moduleContext = context;
   registerIntegratedBrowserEditor(context);
 
   context.subscriptions.push(
@@ -370,5 +380,7 @@ export function activate(context: vscode.ExtensionContext): void {
 }
 
 export function deactivate(): void {
-  // nothing to clean up
+  // Intentionally do not clean up editor associations here.
+  // `deactivate()` runs during normal shutdown/reload as well as disable,
+  // and is not a reliable uninstall hook.
 }
