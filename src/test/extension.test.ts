@@ -4,11 +4,15 @@ import * as vscode from 'vscode';
 
 import {
   getAutoAssociateExtnames,
+  getIntegratedBrowserWebviewHtml,
+  getLocalResourceRootPaths,
   getNextAutoAssociations,
+  getNextDeactivationAssociations,
   getNextHtmlEditorAssociations,
   getSupportedExtnames,
   openInIntegratedBrowser,
 } from '../extension';
+import { vscodeApi } from '../vscodeApi';
 
 const EXT_ID = 'NEVSTOP-LAB.vsc-open-in-integrated-browser';
 const COMMAND_ID = 'openInIntegratedBrowser.open';
@@ -87,18 +91,16 @@ suite('Open in Integrated Browser', () => {
   });
 
   test('configuration changes push updated extensions into the setContext key', async () => {
-    const original = vscode.commands.executeCommand;
+    const original = vscodeApi.executeCommand;
     const setContextCalls: unknown[][] = [];
 
-    (vscode.commands as unknown as {
-      executeCommand: typeof vscode.commands.executeCommand;
-    }).executeCommand = (async (command: string, ...args: unknown[]) => {
+    vscodeApi.executeCommand = (async (command: string, ...args: unknown[]) => {
       if (command === 'setContext') {
         setContextCalls.push(args);
         return undefined;
       }
-      return original.call(vscode.commands, command, ...args);
-    }) as typeof vscode.commands.executeCommand;
+      return original(command, ...args);
+    }) as typeof vscodeApi.executeCommand;
 
     try {
       // Wait for the onDidChangeConfiguration listener (which calls setContext)
@@ -118,9 +120,7 @@ suite('Open in Integrated Browser', () => {
         .update(CONFIG_KEY, ['html'], vscode.ConfigurationTarget.Global);
       await fired;
     } finally {
-      (vscode.commands as unknown as {
-        executeCommand: typeof vscode.commands.executeCommand;
-      }).executeCommand = original;
+      vscodeApi.executeCommand = original;
     }
 
     const lastSetContext = setContextCalls.find(
@@ -135,26 +135,22 @@ suite('Open in Integrated Browser', () => {
   });
 
   test('openInIntegratedBrowser invokes simpleBrowser.api.open with the URI', async () => {
-    const original = vscode.commands.executeCommand;
+    const original = vscodeApi.executeCommand;
     const calls: Array<{ command: string; args: unknown[] }> = [];
 
-    (vscode.commands as unknown as {
-      executeCommand: typeof vscode.commands.executeCommand;
-    }).executeCommand = (async (command: string, ...args: unknown[]) => {
+    vscodeApi.executeCommand = (async (command: string, ...args: unknown[]) => {
       calls.push({ command, args });
       if (command === 'simpleBrowser.api.open') {
         return undefined;
       }
-      return original.call(vscode.commands, command, ...args);
-    }) as typeof vscode.commands.executeCommand;
+      return original(command, ...args);
+    }) as typeof vscodeApi.executeCommand;
 
     try {
       const uri = vscode.Uri.file(path.join(__dirname, 'fixture.html'));
       await openInIntegratedBrowser(uri);
     } finally {
-      (vscode.commands as unknown as {
-        executeCommand: typeof vscode.commands.executeCommand;
-      }).executeCommand = original;
+      vscodeApi.executeCommand = original;
     }
 
     const call = calls.find((c) => c.command === 'simpleBrowser.api.open');
@@ -166,12 +162,10 @@ suite('Open in Integrated Browser', () => {
   });
 
   test('openInIntegratedBrowser falls back to vscode.open when Simple Browser fails', async () => {
-    const original = vscode.commands.executeCommand;
+    const original = vscodeApi.executeCommand;
     const calls: string[] = [];
 
-    (vscode.commands as unknown as {
-      executeCommand: typeof vscode.commands.executeCommand;
-    }).executeCommand = (async (command: string, ...args: unknown[]) => {
+    vscodeApi.executeCommand = (async (command: string, ...args: unknown[]) => {
       calls.push(command);
       if (command === 'simpleBrowser.api.open') {
         throw new Error('simulated failure');
@@ -179,16 +173,14 @@ suite('Open in Integrated Browser', () => {
       if (command === 'vscode.open') {
         return undefined;
       }
-      return original.call(vscode.commands, command, ...args);
-    }) as typeof vscode.commands.executeCommand;
+      return original(command, ...args);
+    }) as typeof vscodeApi.executeCommand;
 
     try {
       const uri = vscode.Uri.file(path.join(__dirname, 'fixture.html'));
       await openInIntegratedBrowser(uri);
     } finally {
-      (vscode.commands as unknown as {
-        executeCommand: typeof vscode.commands.executeCommand;
-      }).executeCommand = original;
+      vscodeApi.executeCommand = original;
     }
 
     assert.ok(calls.includes('simpleBrowser.api.open'));
@@ -268,6 +260,40 @@ suite('Open in Integrated Browser', () => {
     const next = getNextAutoAssociations(current, ['pdf', 'svg'], []);
     assert.deepStrictEqual(next, {
       '*.pdf': 'some.other.editor',
+    });
+  });
+
+  test('getIntegratedBrowserWebviewHtml uses a safe iframe sandbox', () => {
+    const html = getIntegratedBrowserWebviewHtml('https://example.invalid/');
+    assert.ok(html.includes('sandbox="allow-scripts allow-forms"'));
+    assert.ok(!html.includes('allow-same-origin'));
+  });
+
+  test('getIntegratedBrowserWebviewHtml escapes iframe src attribute', () => {
+    const html = getIntegratedBrowserWebviewHtml(
+      'https://example.invalid/?q="><script>alert(1)</script>',
+    );
+    assert.ok(html.includes('&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;'));
+    assert.ok(!html.includes('<script>alert(1)</script>'));
+  });
+
+  test('getLocalResourceRootPaths returns the file dir and its parent', () => {
+    const file = path.join('a', 'b', 'c', 'file.html');
+    assert.deepStrictEqual(getLocalResourceRootPaths(file), [
+      path.join('a', 'b', 'c'),
+      path.join('a', 'b'),
+    ]);
+  });
+
+  test('getNextDeactivationAssociations removes only managed associations', () => {
+    const current = {
+      '*.html': INTEGRATED_BROWSER_EDITOR_VIEW_TYPE,
+      '*.pdf': INTEGRATED_BROWSER_EDITOR_VIEW_TYPE,
+      '*.svg': 'some.other.editor',
+    };
+    const next = getNextDeactivationAssociations(current, true, ['pdf', 'svg']);
+    assert.deepStrictEqual(next, {
+      '*.svg': 'some.other.editor',
     });
   });
 });

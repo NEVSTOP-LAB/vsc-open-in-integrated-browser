@@ -1,6 +1,8 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 
+import { vscodeApi } from './vscodeApi';
+
 const COMMAND_ID = 'openInIntegratedBrowser.open';
 const CONFIG_SECTION = 'openInIntegratedBrowser';
 const CONFIG_KEY = 'extensions';
@@ -215,7 +217,7 @@ async function initializeDefaultHtmlAssociation(
 }
 
 async function updateContextKey(): Promise<void> {
-  await vscode.commands.executeCommand(
+  await vscodeApi.executeCommand(
     'setContext',
     CONTEXT_KEY,
     getSupportedExtnames(),
@@ -237,19 +239,26 @@ function createIntegratedBrowserDocument(
   };
 }
 
+export function getLocalResourceRootPaths(fileFsPath: string): string[] {
+  const fileDir = path.dirname(fileFsPath);
+  const parentDir = path.dirname(fileDir);
+  if (parentDir && parentDir !== fileDir) {
+    return [fileDir, parentDir];
+  }
+  return [fileDir];
+}
+
 function getLocalResourceRoots(uri: vscode.Uri): vscode.Uri[] {
   if (uri.scheme !== 'file') {
     return [];
   }
 
-  // Restrict to only the workspace folder that contains the file, falling back
-  // to the file's parent directory, to avoid exposing unrelated workspace roots
-  // in multi-root workspace scenarios.
-  const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
-  if (workspaceFolder) {
-    return [workspaceFolder.uri];
-  }
-  return [vscode.Uri.file(path.dirname(uri.fsPath))];
+  // Restrict to the file's directory (and its direct parent) instead of the
+  // whole workspace. This reduces exposure in multi-root workspaces while still
+  // allowing typical relative asset loads (e.g. `./assets/...` and `../...`).
+  return getLocalResourceRootPaths(uri.fsPath).map((root) =>
+    vscode.Uri.file(root),
+  );
 }
 
 function getIntegratedBrowserSourceUri(
@@ -271,6 +280,47 @@ function escapeHtml(value: string): string {
     .replaceAll('>', '&gt;');
 }
 
+export function getIntegratedBrowserWebviewHtml(src: string): string {
+  const escapedSrc = escapeHtml(src);
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    html, body, iframe { width: 100%; height: 100%; margin: 0; padding: 0; border: 0; background: var(--vscode-editor-background); }
+  </style>
+</head>
+<body>
+  <iframe title="Integrated Browser Preview" src="${escapedSrc}" allow="clipboard-read; clipboard-write" sandbox="allow-scripts allow-forms"></iframe>
+</body>
+</html>`;
+}
+
+export function getNextDeactivationAssociations(
+  current: Record<string, string>,
+  initializedDefaultHtmlAssociation: boolean,
+  managedAutoExtnames: string[],
+): Record<string, string> {
+  const next = { ...current };
+
+  if (
+    initializedDefaultHtmlAssociation &&
+    next[HTML_FILE_PATTERN] === INTEGRATED_BROWSER_EDITOR_VIEW_TYPE
+  ) {
+    delete next[HTML_FILE_PATTERN];
+  }
+
+  for (const ext of managedAutoExtnames) {
+    const pattern = `*.${ext}`;
+    if (next[pattern] === INTEGRATED_BROWSER_EDITOR_VIEW_TYPE) {
+      delete next[pattern];
+    }
+  }
+
+  return next;
+}
+
 function registerIntegratedBrowserEditor(context: vscode.ExtensionContext): void {
   const provider: vscode.CustomReadonlyEditorProvider<IntegratedBrowserDocument> = {
     openCustomDocument: async (uri: vscode.Uri) =>
@@ -284,22 +334,8 @@ function registerIntegratedBrowserEditor(context: vscode.ExtensionContext): void
         localResourceRoots: getLocalResourceRoots(document.uri),
       };
 
-      const src = escapeHtml(
-        getIntegratedBrowserSourceUri(document.uri, webviewPanel.webview),
-      );
-      webviewPanel.webview.html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
-    html, body, iframe { width: 100%; height: 100%; margin: 0; padding: 0; border: 0; background: var(--vscode-editor-background); }
-  </style>
-</head>
-<body>
-  <iframe title="Integrated Browser Preview" src="${src}" allow="clipboard-read; clipboard-write" sandbox="allow-scripts allow-forms"></iframe>
-</body>
-</html>`;
+      const src = getIntegratedBrowserSourceUri(document.uri, webviewPanel.webview);
+      webviewPanel.webview.html = getIntegratedBrowserWebviewHtml(src);
     },
   };
 
@@ -337,14 +373,14 @@ export async function openInIntegratedBrowser(
 
   try {
     // simpleBrowser.api.open accepts a URI/string and opens it in a webview.
-    await vscode.commands.executeCommand('simpleBrowser.api.open', target, {
+    await vscodeApi.executeCommand('simpleBrowser.api.open', target, {
       preserveFocus: false,
       viewColumn: vscode.ViewColumn.Beside,
     });
   } catch (err) {
     console.error('[OpenInIntegratedBrowser] simpleBrowser.api.open failed, falling back to vscode.open:', err);
     // Fallback: vscode.open opens with the default editor for the resource.
-    await vscode.commands.executeCommand('vscode.open', target);
+    await vscodeApi.executeCommand('vscode.open', target);
   }
 }
 
@@ -379,8 +415,6 @@ export function activate(context: vscode.ExtensionContext): void {
   void applyAutoAssociations(context);
 }
 
-export function deactivate(): void {
-  // Intentionally do not clean up editor associations here.
-  // `deactivate()` runs during normal shutdown/reload as well as disable,
-  // and is not a reliable uninstall hook.
+export async function deactivate(): Promise<void> {
+  moduleContext = undefined;
 }
