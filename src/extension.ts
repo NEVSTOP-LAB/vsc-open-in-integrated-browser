@@ -1,6 +1,8 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 
+import { vscodeApi } from './vscodeApi';
+
 const COMMAND_ID = 'openInIntegratedBrowser.open';
 const CONFIG_SECTION = 'openInIntegratedBrowser';
 const CONFIG_KEY = 'extensions';
@@ -215,7 +217,7 @@ async function initializeDefaultHtmlAssociation(
 }
 
 async function updateContextKey(): Promise<void> {
-  await vscode.commands.executeCommand(
+  await vscodeApi.executeCommand(
     'setContext',
     CONTEXT_KEY,
     getSupportedExtnames(),
@@ -338,14 +340,14 @@ export async function openInIntegratedBrowser(
 
   try {
     // simpleBrowser.api.open accepts a URI/string and opens it in a webview.
-    await vscode.commands.executeCommand('simpleBrowser.api.open', target, {
+    await vscodeApi.executeCommand('simpleBrowser.api.open', target, {
       preserveFocus: false,
       viewColumn: vscode.ViewColumn.Beside,
     });
   } catch (err) {
     console.error('[OpenInIntegratedBrowser] simpleBrowser.api.open failed, falling back to vscode.open:', err);
     // Fallback: vscode.open opens with the default editor for the resource.
-    await vscode.commands.executeCommand('vscode.open', target);
+    await vscodeApi.executeCommand('vscode.open', target);
   }
 }
 

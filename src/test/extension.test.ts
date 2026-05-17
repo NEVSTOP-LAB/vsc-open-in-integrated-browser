@@ -9,6 +9,7 @@ import {
   getSupportedExtnames,
   openInIntegratedBrowser,
 } from '../extension';
+import { vscodeApi } from '../vscodeApi';
 
 const EXT_ID = 'NEVSTOP-LAB.vsc-open-in-integrated-browser';
 const COMMAND_ID = 'openInIntegratedBrowser.open';
@@ -87,18 +88,16 @@ suite('Open in Integrated Browser', () => {
   });
 
   test('configuration changes push updated extensions into the setContext key', async () => {
-    const original = vscode.commands.executeCommand;
+    const original = vscodeApi.executeCommand;
     const setContextCalls: unknown[][] = [];
 
-    (vscode.commands as unknown as {
-      executeCommand: typeof vscode.commands.executeCommand;
-    }).executeCommand = (async (command: string, ...args: unknown[]) => {
+    vscodeApi.executeCommand = (async (command: string, ...args: unknown[]) => {
       if (command === 'setContext') {
         setContextCalls.push(args);
         return undefined;
       }
-      return original.call(vscode.commands, command, ...args);
-    }) as typeof vscode.commands.executeCommand;
+      return original(command, ...args);
+    }) as typeof vscodeApi.executeCommand;
 
     try {
       // Wait for the onDidChangeConfiguration listener (which calls setContext)
@@ -118,9 +117,7 @@ suite('Open in Integrated Browser', () => {
         .update(CONFIG_KEY, ['html'], vscode.ConfigurationTarget.Global);
       await fired;
     } finally {
-      (vscode.commands as unknown as {
-        executeCommand: typeof vscode.commands.executeCommand;
-      }).executeCommand = original;
+      vscodeApi.executeCommand = original;
     }
 
     const lastSetContext = setContextCalls.find(
@@ -135,26 +132,22 @@ suite('Open in Integrated Browser', () => {
   });
 
   test('openInIntegratedBrowser invokes simpleBrowser.api.open with the URI', async () => {
-    const original = vscode.commands.executeCommand;
+    const original = vscodeApi.executeCommand;
     const calls: Array<{ command: string; args: unknown[] }> = [];
 
-    (vscode.commands as unknown as {
-      executeCommand: typeof vscode.commands.executeCommand;
-    }).executeCommand = (async (command: string, ...args: unknown[]) => {
+    vscodeApi.executeCommand = (async (command: string, ...args: unknown[]) => {
       calls.push({ command, args });
       if (command === 'simpleBrowser.api.open') {
         return undefined;
       }
-      return original.call(vscode.commands, command, ...args);
-    }) as typeof vscode.commands.executeCommand;
+      return original(command, ...args);
+    }) as typeof vscodeApi.executeCommand;
 
     try {
       const uri = vscode.Uri.file(path.join(__dirname, 'fixture.html'));
       await openInIntegratedBrowser(uri);
     } finally {
-      (vscode.commands as unknown as {
-        executeCommand: typeof vscode.commands.executeCommand;
-      }).executeCommand = original;
+      vscodeApi.executeCommand = original;
     }
 
     const call = calls.find((c) => c.command === 'simpleBrowser.api.open');
@@ -166,12 +159,10 @@ suite('Open in Integrated Browser', () => {
   });
 
   test('openInIntegratedBrowser falls back to vscode.open when Simple Browser fails', async () => {
-    const original = vscode.commands.executeCommand;
+    const original = vscodeApi.executeCommand;
     const calls: string[] = [];
 
-    (vscode.commands as unknown as {
-      executeCommand: typeof vscode.commands.executeCommand;
-    }).executeCommand = (async (command: string, ...args: unknown[]) => {
+    vscodeApi.executeCommand = (async (command: string, ...args: unknown[]) => {
       calls.push(command);
       if (command === 'simpleBrowser.api.open') {
         throw new Error('simulated failure');
@@ -179,16 +170,14 @@ suite('Open in Integrated Browser', () => {
       if (command === 'vscode.open') {
         return undefined;
       }
-      return original.call(vscode.commands, command, ...args);
-    }) as typeof vscode.commands.executeCommand;
+      return original(command, ...args);
+    }) as typeof vscodeApi.executeCommand;
 
     try {
       const uri = vscode.Uri.file(path.join(__dirname, 'fixture.html'));
       await openInIntegratedBrowser(uri);
     } finally {
-      (vscode.commands as unknown as {
-        executeCommand: typeof vscode.commands.executeCommand;
-      }).executeCommand = original;
+      vscodeApi.executeCommand = original;
     }
 
     assert.ok(calls.includes('simpleBrowser.api.open'));
