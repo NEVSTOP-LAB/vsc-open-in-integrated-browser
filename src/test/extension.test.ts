@@ -123,9 +123,16 @@ suite('Open in Integrated Browser', () => {
       vscodeApi.executeCommand = original;
     }
 
-    const lastSetContext = setContextCalls.find(
+    let lastSetContext = setContextCalls.find(
       (args) => args[0] === 'openInIntegratedBrowser.supportedExtnames',
     );
+    const timeoutAt = Date.now() + 3_000;
+    while (!lastSetContext && Date.now() < timeoutAt) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 25));
+      lastSetContext = setContextCalls.find(
+        (args) => args[0] === 'openInIntegratedBrowser.supportedExtnames',
+      );
+    }
     assert.ok(
       lastSetContext,
       'setContext should be invoked for openInIntegratedBrowser.supportedExtnames',
