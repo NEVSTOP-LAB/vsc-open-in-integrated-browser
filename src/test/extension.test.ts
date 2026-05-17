@@ -27,6 +27,22 @@ const DEFAULT_EXTENSIONS = [
   'html', 'htm', 'pdf', 'svg', 'xml', 'xsl',
 ];
 
+async function waitFor(
+  predicate: () => boolean,
+  timeoutMs = 3000,
+  intervalMs = 25,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (predicate()) {
+      return;
+    }
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, intervalMs);
+    });
+  }
+}
+
 suite('Open in Integrated Browser', () => {
   suiteSetup(async () => {
     // Activate the extension explicitly so subsequent tests don't depend on
@@ -119,13 +135,19 @@ suite('Open in Integrated Browser', () => {
         .getConfiguration(CONFIG_SECTION)
         .update(CONFIG_KEY, ['html'], vscode.ConfigurationTarget.Global);
       await fired;
+      await waitFor(() =>
+        setContextCalls.some(
+          (args) => args[0] === 'openInIntegratedBrowser.supportedExtnames',
+        ),
+      );
     } finally {
       vscodeApi.executeCommand = original;
     }
 
-    const lastSetContext = setContextCalls.find(
+    const matchingCalls = setContextCalls.filter(
       (args) => args[0] === 'openInIntegratedBrowser.supportedExtnames',
     );
+    const lastSetContext = matchingCalls[matchingCalls.length - 1];
     assert.ok(
       lastSetContext,
       'setContext should be invoked for openInIntegratedBrowser.supportedExtnames',
