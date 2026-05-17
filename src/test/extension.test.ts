@@ -4,7 +4,10 @@ import * as vscode from 'vscode';
 
 import {
   getAutoAssociateExtnames,
+  getIntegratedBrowserWebviewHtml,
+  getLocalResourceRootPaths,
   getNextAutoAssociations,
+  getNextDeactivationAssociations,
   getNextHtmlEditorAssociations,
   getSupportedExtnames,
   openInIntegratedBrowser,
@@ -257,6 +260,32 @@ suite('Open in Integrated Browser', () => {
     const next = getNextAutoAssociations(current, ['pdf', 'svg'], []);
     assert.deepStrictEqual(next, {
       '*.pdf': 'some.other.editor',
+    });
+  });
+
+  test('getIntegratedBrowserWebviewHtml uses a safe iframe sandbox', () => {
+    const html = getIntegratedBrowserWebviewHtml('https://example.invalid/');
+    assert.ok(html.includes('sandbox="allow-scripts allow-forms"'));
+    assert.ok(!html.includes('allow-same-origin'));
+  });
+
+  test('getLocalResourceRootPaths returns the file dir and its parent', () => {
+    const file = path.join('a', 'b', 'c', 'file.html');
+    assert.deepStrictEqual(getLocalResourceRootPaths(file), [
+      path.join('a', 'b', 'c'),
+      path.join('a', 'b'),
+    ]);
+  });
+
+  test('getNextDeactivationAssociations removes only managed associations', () => {
+    const current = {
+      '*.html': INTEGRATED_BROWSER_EDITOR_VIEW_TYPE,
+      '*.pdf': INTEGRATED_BROWSER_EDITOR_VIEW_TYPE,
+      '*.svg': 'some.other.editor',
+    };
+    const next = getNextDeactivationAssociations(current, true, ['pdf', 'svg']);
+    assert.deepStrictEqual(next, {
+      '*.svg': 'some.other.editor',
     });
   });
 });

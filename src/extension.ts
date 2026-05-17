@@ -239,6 +239,15 @@ function createIntegratedBrowserDocument(
   };
 }
 
+export function getLocalResourceRootPaths(fileFsPath: string): string[] {
+  const fileDir = path.dirname(fileFsPath);
+  const parentDir = path.dirname(fileDir);
+  if (parentDir && parentDir !== fileDir) {
+    return [fileDir, parentDir];
+  }
+  return [fileDir];
+}
+
 function getLocalResourceRoots(uri: vscode.Uri): vscode.Uri[] {
   if (uri.scheme !== 'file') {
     return [];
@@ -247,12 +256,9 @@ function getLocalResourceRoots(uri: vscode.Uri): vscode.Uri[] {
   // Restrict to the file's directory (and its direct parent) instead of the
   // whole workspace. This reduces exposure in multi-root workspaces while still
   // allowing typical relative asset loads (e.g. `./assets/...` and `../...`).
-  const fileDir = vscode.Uri.file(path.dirname(uri.fsPath));
-  const parentDir = vscode.Uri.file(path.dirname(fileDir.fsPath));
-  if (parentDir.fsPath && parentDir.fsPath !== fileDir.fsPath) {
-    return [fileDir, parentDir];
-  }
-  return [fileDir];
+  return getLocalResourceRootPaths(uri.fsPath).map((root) =>
+    vscode.Uri.file(root),
+  );
 }
 
 function getIntegratedBrowserSourceUri(
@@ -274,6 +280,46 @@ function escapeHtml(value: string): string {
     .replaceAll('>', '&gt;');
 }
 
+export function getIntegratedBrowserWebviewHtml(src: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    html, body, iframe { width: 100%; height: 100%; margin: 0; padding: 0; border: 0; background: var(--vscode-editor-background); }
+  </style>
+</head>
+<body>
+  <iframe title="Integrated Browser Preview" src="${src}" allow="clipboard-read; clipboard-write" sandbox="allow-scripts allow-forms"></iframe>
+</body>
+</html>`;
+}
+
+export function getNextDeactivationAssociations(
+  current: Record<string, string>,
+  initializedDefaultHtmlAssociation: boolean,
+  managedAutoExtnames: string[],
+): Record<string, string> {
+  const next = { ...current };
+
+  if (
+    initializedDefaultHtmlAssociation &&
+    next[HTML_FILE_PATTERN] === INTEGRATED_BROWSER_EDITOR_VIEW_TYPE
+  ) {
+    delete next[HTML_FILE_PATTERN];
+  }
+
+  for (const ext of managedAutoExtnames) {
+    const pattern = `*.${ext}`;
+    if (next[pattern] === INTEGRATED_BROWSER_EDITOR_VIEW_TYPE) {
+      delete next[pattern];
+    }
+  }
+
+  return next;
+}
+
 function registerIntegratedBrowserEditor(context: vscode.ExtensionContext): void {
   const provider: vscode.CustomReadonlyEditorProvider<IntegratedBrowserDocument> = {
     openCustomDocument: async (uri: vscode.Uri) =>
@@ -290,19 +336,7 @@ function registerIntegratedBrowserEditor(context: vscode.ExtensionContext): void
       const src = escapeHtml(
         getIntegratedBrowserSourceUri(document.uri, webviewPanel.webview),
       );
-      webviewPanel.webview.html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
-    html, body, iframe { width: 100%; height: 100%; margin: 0; padding: 0; border: 0; background: var(--vscode-editor-background); }
-  </style>
-</head>
-<body>
-  <iframe title="Integrated Browser Preview" src="${src}" allow="clipboard-read; clipboard-write" sandbox="allow-scripts allow-forms"></iframe>
-</body>
-</html>`;
+      webviewPanel.webview.html = getIntegratedBrowserWebviewHtml(src);
     },
   };
 
@@ -390,29 +424,19 @@ export async function deactivate(): Promise<void> {
 
   try {
     const currentAssociations = getEditorAssociations();
-    const nextAssociations = { ...currentAssociations };
-
-    const initializedDefaultHtml = context.globalState.get<boolean>(
+    const initializedDefaultHtmlAssociation = context.globalState.get<boolean>(
       INITIALIZED_DEFAULT_ASSOCIATION_KEY,
       false,
     );
-    if (
-      initializedDefaultHtml &&
-      nextAssociations[HTML_FILE_PATTERN] === INTEGRATED_BROWSER_EDITOR_VIEW_TYPE
-    ) {
-      delete nextAssociations[HTML_FILE_PATTERN];
-    }
-
     const managedAutoExtnames = context.globalState.get<string[]>(
       MANAGED_AUTO_ASSOC_STATE_KEY,
       [],
     );
-    for (const ext of managedAutoExtnames) {
-      const pattern = `*.${ext}`;
-      if (nextAssociations[pattern] === INTEGRATED_BROWSER_EDITOR_VIEW_TYPE) {
-        delete nextAssociations[pattern];
-      }
-    }
+    const nextAssociations = getNextDeactivationAssociations(
+      currentAssociations,
+      initializedDefaultHtmlAssociation,
+      managedAutoExtnames,
+    );
 
     if (hasAssociationChanges(currentAssociations, nextAssociations)) {
       await vscode.workspace
