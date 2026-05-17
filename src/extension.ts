@@ -242,14 +242,15 @@ function getLocalResourceRoots(uri: vscode.Uri): vscode.Uri[] {
     return [];
   }
 
-  // Restrict to only the workspace folder that contains the file, falling back
-  // to the file's parent directory, to avoid exposing unrelated workspace roots
-  // in multi-root workspace scenarios.
-  const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
-  if (workspaceFolder) {
-    return [workspaceFolder.uri];
+  // Restrict to the file's directory (and its direct parent) instead of the
+  // whole workspace. This reduces exposure in multi-root workspaces while still
+  // allowing typical relative asset loads (e.g. `./assets/...` and `../...`).
+  const fileDir = vscode.Uri.file(path.dirname(uri.fsPath));
+  const parentDir = vscode.Uri.file(path.dirname(fileDir.fsPath));
+  if (parentDir.fsPath && parentDir.fsPath !== fileDir.fsPath) {
+    return [fileDir, parentDir];
   }
-  return [vscode.Uri.file(path.dirname(uri.fsPath))];
+  return [fileDir];
 }
 
 function getIntegratedBrowserSourceUri(
