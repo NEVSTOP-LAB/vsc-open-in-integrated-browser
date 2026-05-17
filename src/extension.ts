@@ -380,8 +380,54 @@ export function activate(context: vscode.ExtensionContext): void {
   void applyAutoAssociations(context);
 }
 
-export function deactivate(): void {
-  // Intentionally do not clean up editor associations here.
-  // `deactivate()` runs during normal shutdown/reload as well as disable,
-  // and is not a reliable uninstall hook.
+export async function deactivate(): Promise<void> {
+  const context = moduleContext;
+  if (!context) {
+    return;
+  }
+
+  try {
+    const currentAssociations = getEditorAssociations();
+    const nextAssociations = { ...currentAssociations };
+
+    const initializedDefaultHtml = context.globalState.get<boolean>(
+      INITIALIZED_DEFAULT_ASSOCIATION_KEY,
+      false,
+    );
+    if (
+      initializedDefaultHtml &&
+      nextAssociations[HTML_FILE_PATTERN] === INTEGRATED_BROWSER_EDITOR_VIEW_TYPE
+    ) {
+      delete nextAssociations[HTML_FILE_PATTERN];
+    }
+
+    const managedAutoExtnames = context.globalState.get<string[]>(
+      MANAGED_AUTO_ASSOC_STATE_KEY,
+      [],
+    );
+    for (const ext of managedAutoExtnames) {
+      const pattern = `*.${ext}`;
+      if (nextAssociations[pattern] === INTEGRATED_BROWSER_EDITOR_VIEW_TYPE) {
+        delete nextAssociations[pattern];
+      }
+    }
+
+    if (hasAssociationChanges(currentAssociations, nextAssociations)) {
+      await vscode.workspace
+        .getConfiguration(WORKBENCH_CONFIG_SECTION)
+        .update(
+          WORKBENCH_EDITOR_ASSOCIATIONS_KEY,
+          nextAssociations,
+          vscode.ConfigurationTarget.Global,
+        );
+    }
+
+    await context.globalState.update(MANAGED_AUTO_ASSOC_STATE_KEY, []);
+    await context.globalState.update(INITIALIZED_DEFAULT_ASSOCIATION_KEY, false);
+  } catch (err) {
+    console.error(
+      '[OpenInIntegratedBrowser] Failed to clean editor associations during deactivate:',
+      err,
+    );
+  }
 }
