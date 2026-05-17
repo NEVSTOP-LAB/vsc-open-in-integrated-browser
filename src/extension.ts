@@ -281,6 +281,7 @@ function escapeHtml(value: string): string {
 }
 
 export function getIntegratedBrowserWebviewHtml(src: string): string {
+  const escapedSrc = escapeHtml(src);
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -291,7 +292,7 @@ export function getIntegratedBrowserWebviewHtml(src: string): string {
   </style>
 </head>
 <body>
-  <iframe title="Integrated Browser Preview" src="${src}" allow="clipboard-read; clipboard-write" sandbox="allow-scripts allow-forms"></iframe>
+  <iframe title="Integrated Browser Preview" src="${escapedSrc}" allow="clipboard-read; clipboard-write" sandbox="allow-scripts allow-forms"></iframe>
 </body>
 </html>`;
 }
@@ -333,9 +334,7 @@ function registerIntegratedBrowserEditor(context: vscode.ExtensionContext): void
         localResourceRoots: getLocalResourceRoots(document.uri),
       };
 
-      const src = escapeHtml(
-        getIntegratedBrowserSourceUri(document.uri, webviewPanel.webview),
-      );
+      const src = getIntegratedBrowserSourceUri(document.uri, webviewPanel.webview);
       webviewPanel.webview.html = getIntegratedBrowserWebviewHtml(src);
     },
   };
@@ -417,43 +416,5 @@ export function activate(context: vscode.ExtensionContext): void {
 }
 
 export async function deactivate(): Promise<void> {
-  const context = moduleContext;
-  if (!context) {
-    return;
-  }
-
-  try {
-    const currentAssociations = getEditorAssociations();
-    const initializedDefaultHtmlAssociation = context.globalState.get<boolean>(
-      INITIALIZED_DEFAULT_ASSOCIATION_KEY,
-      false,
-    );
-    const managedAutoExtnames = context.globalState.get<string[]>(
-      MANAGED_AUTO_ASSOC_STATE_KEY,
-      [],
-    );
-    const nextAssociations = getNextDeactivationAssociations(
-      currentAssociations,
-      initializedDefaultHtmlAssociation,
-      managedAutoExtnames,
-    );
-
-    if (hasAssociationChanges(currentAssociations, nextAssociations)) {
-      await vscode.workspace
-        .getConfiguration(WORKBENCH_CONFIG_SECTION)
-        .update(
-          WORKBENCH_EDITOR_ASSOCIATIONS_KEY,
-          nextAssociations,
-          vscode.ConfigurationTarget.Global,
-        );
-    }
-
-    await context.globalState.update(MANAGED_AUTO_ASSOC_STATE_KEY, []);
-    await context.globalState.update(INITIALIZED_DEFAULT_ASSOCIATION_KEY, false);
-  } catch (err) {
-    console.error(
-      '[OpenInIntegratedBrowser] Failed to clean editor associations during deactivate:',
-      err,
-    );
-  }
+  moduleContext = undefined;
 }

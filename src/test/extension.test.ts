@@ -269,6 +269,14 @@ suite('Open in Integrated Browser', () => {
     assert.ok(!html.includes('allow-same-origin'));
   });
 
+  test('getIntegratedBrowserWebviewHtml escapes iframe src attribute', () => {
+    const html = getIntegratedBrowserWebviewHtml(
+      'https://example.invalid/?q="><script>alert(1)</script>',
+    );
+    assert.ok(html.includes('&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;'));
+    assert.ok(!html.includes('<script>alert(1)</script>'));
+  });
+
   test('getLocalResourceRootPaths returns the file dir and its parent', () => {
     const file = path.join('a', 'b', 'c', 'file.html');
     assert.deepStrictEqual(getLocalResourceRootPaths(file), [
