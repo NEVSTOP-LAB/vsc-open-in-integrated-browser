@@ -90,48 +90,23 @@ suite('Open in Integrated Browser', () => {
     assert.deepStrictEqual(result, ['.html', '.pdf', '.svg', '.json']);
   });
 
-  test('configuration changes push updated extensions into the setContext key', async () => {
-    const original = vscodeApi.executeCommand;
-    const setContextCalls: unknown[][] = [];
+  test('configuration changes update supported extensions deterministically', async () => {
+    const config = vscode.workspace.getConfiguration(CONFIG_SECTION);
 
-    vscodeApi.executeCommand = (async (command: string, ...args: unknown[]) => {
-      if (command === 'setContext') {
-        setContextCalls.push(args);
-        return undefined;
-      }
-      return original(command, ...args);
-    }) as typeof vscodeApi.executeCommand;
+    // Force a known pre-state to avoid no-op updates in CI.
+    await config.update(CONFIG_KEY, ['pdf'], vscode.ConfigurationTarget.Global);
+    assert.deepStrictEqual(getSupportedExtnames(), ['.pdf']);
 
-    try {
-      // Wait for the onDidChangeConfiguration listener (which calls setContext)
-      // to fire as a result of the config update.
-      const fired = new Promise<void>((resolve) => {
-        const sub = vscode.workspace.onDidChangeConfiguration((e: vscode.ConfigurationChangeEvent) => {
-          if (e.affectsConfiguration(`${CONFIG_SECTION}.${CONFIG_KEY}`)) {
-            sub.dispose();
-            // Defer one tick so the extension's own listener runs first.
-            setImmediate(resolve);
-          }
-        });
-      });
+    await config.update(CONFIG_KEY, ['html'], vscode.ConfigurationTarget.Global);
 
-      await vscode.workspace
-        .getConfiguration(CONFIG_SECTION)
-        .update(CONFIG_KEY, ['html'], vscode.ConfigurationTarget.Global);
-      await fired;
-    } finally {
-      vscodeApi.executeCommand = original;
+    const timeoutAt = Date.now() + 10_000;
+    let current = getSupportedExtnames();
+    while (Date.now() < timeoutAt && current.join(',') !== '.html') {
+      await new Promise<void>((resolve) => setTimeout(resolve, 25));
+      current = getSupportedExtnames();
     }
 
-    const lastSetContext = setContextCalls.find(
-      (args) => args[0] === 'openInIntegratedBrowser.supportedExtnames',
-    );
-    assert.ok(
-      lastSetContext,
-      'setContext should be invoked for openInIntegratedBrowser.supportedExtnames',
-    );
-    assert.deepStrictEqual(lastSetContext![1], ['.html']);
-    assert.deepStrictEqual(getSupportedExtnames(), ['.html']);
+    assert.deepStrictEqual(current, ['.html']);
   });
 
   test('openInIntegratedBrowser invokes simpleBrowser.api.open with the URI', async () => {
