@@ -1,5 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { statSync } from 'fs';
 
 import { vscodeApi } from './vscodeApi';
 
@@ -19,9 +20,40 @@ const INITIALIZED_DEFAULT_ASSOCIATION_KEY =
   'openInIntegratedBrowser.defaultHtmlAssociationInitialized';
 const MANAGED_AUTO_ASSOC_STATE_KEY =
   'openInIntegratedBrowser.managedAutoAssociations';
+const OUTPUT_CHANNEL_NAME = 'Open in Integrated Browser';
 
 /** Module-level context reference, set during activation and used in deactivate. */
 let moduleContext: vscode.ExtensionContext | undefined;
+let outputChannel: vscode.OutputChannel | undefined;
+
+function getBuildStamp(): string {
+  try {
+    const mtime = statSync(__filename).mtime;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${mtime.getFullYear()}${pad(mtime.getMonth() + 1)}${pad(mtime.getDate())}-${pad(mtime.getHours())}${pad(mtime.getMinutes())}${pad(mtime.getSeconds())}`;
+  } catch {
+    return 'unknown';
+  }
+}
+
+function logDevBuildInfo(context: vscode.ExtensionContext): void {
+  if (context.extensionMode !== vscode.ExtensionMode.Development) {
+    return;
+  }
+
+  if (!outputChannel) {
+    outputChannel = vscode.window.createOutputChannel(OUTPUT_CHANNEL_NAME);
+    context.subscriptions.push(outputChannel);
+  }
+
+  const build = getBuildStamp();
+  const message = vscode.l10n.t(
+    'Open in Integrated Browser loaded (dev build {0}).',
+    build,
+  );
+  outputChannel.appendLine(message);
+  void vscode.window.showInformationMessage(message);
+}
 
 /**
  * Read user-configured file extensions and normalize them to the form
@@ -386,6 +418,7 @@ export async function openInIntegratedBrowser(
 
 export function activate(context: vscode.ExtensionContext): void {
   moduleContext = context;
+  logDevBuildInfo(context);
   registerIntegratedBrowserEditor(context);
 
   context.subscriptions.push(
