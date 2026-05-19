@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="220" viewBox="0 0 360 220">
+  <defs>
+    <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#78c2ff"/>
+      <stop offset="100%" stop-color="#2f6ccf"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="360" height="220" fill="#f7fbff"/>
+  <circle cx="90" cy="110" r="64" fill="url(#g1)" opacity="0.9"/>
+  <rect x="150" y="54" width="160" height="112" rx="12" fill="#1f4a8a" opacity="0.16"/>
+  <path d="M 155 150 C 200 60, 260 200, 310 95" stroke="#1f4a8a" stroke-width="4" fill="none"/>
+
+  <text x="20" y="28" font-family="Segoe UI, sans-serif" font-size="18" fill="#16335f">SVG Local Test</text>
+</svg>

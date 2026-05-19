@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fixtures>
+  <item id="alpha" enabled="true">
+    <name>Prototype Entry A</name>
+    <url>./index.html</url>
+  </item>
+  <item id="beta" enabled="false">
+    <name>Prototype Entry B</name>
+    <url>./page-basic.html</url>
+  </item>
+  <meta>
+    <author>local-test</author>
+    <created>2026-05-19</created>
+  </meta>
+</fixtures>
