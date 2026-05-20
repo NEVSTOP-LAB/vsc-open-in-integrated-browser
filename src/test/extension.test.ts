@@ -6,6 +6,7 @@ import {
   getAutoAssociateExtnames,
   getIntegratedBrowserWebviewHtml,
   getLocalResourceRootPaths,
+  getMergedAutoAssociateExtnames,
   getMigratedAssociations,
   getNextAutoAssociations,
   getNextDeactivationAssociations,
@@ -238,6 +239,16 @@ suite('Open in Integrated Browser', () => {
     assert.deepStrictEqual(next, {
       '*.pdf': 'some.other.editor',
     });
+  });
+
+  test('getMergedAutoAssociateExtnames appends manually associated extensions', () => {
+    const merged = getMergedAutoAssociateExtnames(['pdf'], ['xml', 'pdf']);
+    assert.deepStrictEqual(merged, ['pdf', 'xml']);
+  });
+
+  test('getMergedAutoAssociateExtnames keeps order and uniqueness', () => {
+    const merged = getMergedAutoAssociateExtnames(['svg', 'pdf'], ['pdf', 'xml', 'svg']);
+    assert.deepStrictEqual(merged, ['svg', 'pdf', 'xml']);
   });
 
   test('getMigratedAssociations rewrites managed simple browser mappings to integrated browser editor', () => {

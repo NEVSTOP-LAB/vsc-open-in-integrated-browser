@@ -115,6 +115,82 @@ export function getAutoAssociateExtnames(): string[] {
   return result;
 }
 
+function getAssociatedExtnamesForViewType(
+  associations: Record<string, string>,
+  viewType: string,
+): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const [pattern, value] of Object.entries(associations)) {
+    if (value !== viewType) {
+      continue;
+    }
+
+    const match = pattern.match(/^\*\.([a-z0-9_+-]+)$/i);
+    if (!match) {
+      continue;
+    }
+
+    const ext = match[1].toLowerCase();
+    if (!seen.has(ext)) {
+      seen.add(ext);
+      result.push(ext);
+    }
+  }
+
+  return result;
+}
+
+export function getMergedAutoAssociateExtnames(
+  configured: string[],
+  associated: string[],
+): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const ext of configured) {
+    if (!seen.has(ext)) {
+      seen.add(ext);
+      result.push(ext);
+    }
+  }
+
+  for (const ext of associated) {
+    if (!seen.has(ext)) {
+      seen.add(ext);
+      result.push(ext);
+    }
+  }
+
+  return result;
+}
+
+async function syncAutoAssociateSettingFromEditorAssociations(): Promise<void> {
+  const associations = getEditorAssociations();
+  const associatedExtnames = getAssociatedExtnamesForViewType(
+    associations,
+    INTEGRATED_BROWSER_EDITOR_VIEW_TYPE,
+  );
+  const configuredExtnames = getAutoAssociateExtnames();
+  const mergedExtnames = getMergedAutoAssociateExtnames(
+    configuredExtnames,
+    associatedExtnames,
+  );
+
+  if (mergedExtnames.length === configuredExtnames.length) {
+    return;
+  }
+
+  await vscode.workspace
+    .getConfiguration(CONFIG_SECTION)
+    .update(
+      CONFIG_AUTO_ASSOCIATE_KEY,
+      mergedExtnames,
+      vscode.ConfigurationTarget.Global,
+    );
+}
+
 /**
  * Compute the next editor associations after updating the auto-associate list.
  * Extensions in `prevExtnames` that are no longer in `newExtnames` have their
@@ -509,12 +585,14 @@ export function activate(context: vscode.ExtensionContext): void {
           `${WORKBENCH_CONFIG_SECTION}.${WORKBENCH_EDITOR_ASSOCIATIONS_KEY}`,
         )
       ) {
+        void syncAutoAssociateSettingFromEditorAssociations();
         void migrateLegacyEditorAssociations();
       }
     }),
   );
 
   void updateContextKey();
+  void syncAutoAssociateSettingFromEditorAssociations();
   void migrateLegacyEditorAssociations();
   void applyHtmlEditorAssociationFromSetting();
   void applyAutoAssociations(context);
