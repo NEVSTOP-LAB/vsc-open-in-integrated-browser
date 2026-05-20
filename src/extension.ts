@@ -117,9 +117,6 @@ function getPreferredConfigTarget(key: string): vscode.ConfigurationTarget {
     .getConfiguration(CONFIG_SECTION)
     .inspect<unknown>(key);
 
-  if (inspected?.workspaceFolderValue !== undefined) {
-    return vscode.ConfigurationTarget.Workspace;
-  }
   if (inspected?.workspaceValue !== undefined) {
     return vscode.ConfigurationTarget.Workspace;
   }
@@ -250,12 +247,23 @@ async function migrateLegacyEditorAssociations(): Promise<void> {
     return;
   }
 
+  // Determine the target scope based on where the current associations are stored.
+  // WorkspaceFolder scope is not migrated (would require a folder URI).
+  const inspected = vscode.workspace
+    .getConfiguration(WORKBENCH_CONFIG_SECTION)
+    .inspect<unknown>(WORKBENCH_EDITOR_ASSOCIATIONS_KEY);
+
+  const target =
+    inspected?.workspaceValue !== undefined
+      ? vscode.ConfigurationTarget.Workspace
+      : vscode.ConfigurationTarget.Global;
+
   await vscode.workspace
     .getConfiguration(WORKBENCH_CONFIG_SECTION)
     .update(
       WORKBENCH_EDITOR_ASSOCIATIONS_KEY,
       nextAssociations,
-      vscode.ConfigurationTarget.Global,
+      target,
     );
 }
 
@@ -470,7 +478,7 @@ async function openInSimpleBrowser(uri: vscode.Uri): Promise<boolean> {
 
 /**
  * Open the given resource in the VS Code built-in Simple Browser.
- * Falls back to `vscode.open` if the Simple Browser API is unavailable.
+ * Falls back to `vscode.openWith` with the `default` view type if the Simple Browser API is unavailable.
  */
 export async function openInIntegratedBrowser(
   uri: vscode.Uri | undefined,
@@ -488,7 +496,7 @@ export async function openInIntegratedBrowser(
 
   const opened = await openInSimpleBrowser(target);
   if (!opened) {
-    console.error('[OpenInIntegratedBrowser] falling back to vscode.open.');
+    console.error('[OpenInIntegratedBrowser] falling back to vscode.openWith with default view type.');
     // Avoid recursive fallback when this extension is the default editor.
     await vscodeApi.executeCommand('vscode.openWith', target, 'default');
   }
