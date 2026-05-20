@@ -5,7 +5,5 @@
   "command.openInIntegratedBrowser.open.title": "Open in Integrated Browser",
   "command.openInIntegratedBrowser.category": "Integrated Browser",
   "customEditor.openInIntegratedBrowser.displayName": "Integrated Browser",
-  "configuration.extensions.description": "List of file extensions (without leading dot) that show the **Open in Integrated Browser** command in the context menu. Example: `html`, `pdf`, `svg`. Changes take effect immediately.",
-  "configuration.autoAssociateExtensions.description": "List of file extensions (without leading dot) that should automatically open in Integrated Browser. Files with these extensions will have `workbench.editorAssociations` updated to use this extension's editor as their default, which forwards to VS Code's built-in Simple Browser when available. Example: `html`, `pdf`, `svg`. Changes take effect immediately.",
-  "configuration.setHtmlAsDefaultEditor.description": "When enabled, `*.html` files default to this extension's Integrated Browser editor. The editor opens in VS Code's built-in Simple Browser when available. This default is applied automatically after installation and can be toggled anytime from Settings."
+  "configuration.autoAssociateAsDefaultByExtension.description": "Per-extension checkbox map. Each key is an extension (without leading dot). If checked (`true`), this extension appears in the context menu and is written to `workbench.editorAssociations` so files default-open with this extension. If unchecked (`false`), it still appears in the context menu but default-open is not forced. Example: `{ \"html\": true, \"xml\": false }`."
 }

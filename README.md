@@ -8,8 +8,7 @@ Originally motivated by how cumbersome it is to preview HTML files inside VS Cod
 
 - Right-click any supported file in the **Explorer**, on an **editor tab**, or in the **editor area** → **Open in Integrated Browser**.
 - Opens the file using VS Code's built-in [Simple Browser](https://code.visualstudio.com/api/extension-guides/webview#simple-browser) via `simpleBrowser.api.open` (falls back to `vscode.open` when unavailable).
-- After installation, `*.html` files are set to open in this extension's Integrated Browser editor by default; when available, it forwards to VS Code's built-in Simple Browser (can be turned off or turned on again from Settings).
-- **Fully configurable file types** via the `openInIntegratedBrowser.extensions` setting.
+- Per-extension checkboxes control both menu visibility and whether default-open association is applied.
 - Localized in **English** and **简体中文**.
 
 ## Default supported file extensions
@@ -22,16 +21,20 @@ html, htm, pdf, svg, xml, xsl
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `openInIntegratedBrowser.extensions` | `string[]` | see above | File extensions (without leading dot) that show the command in the context menu. |
-| `openInIntegratedBrowser.setHtmlAsDefaultEditor` | `boolean` | `true` | Controls whether `*.html` uses this extension's Integrated Browser editor as the default editor (which forwards to VS Code's built-in Simple Browser when available). Applied automatically after installation, and can be toggled later in Settings. |
+| `openInIntegratedBrowser.autoAssociateAsDefaultByExtension` | `Record<string, boolean>` | `{ html: true, htm: true, pdf: true, svg: true, xml: true, xsl: true }` | Per-extension checkboxes. Key = extension (without dot). `true`: show context menu and set default-open association to this extension. `false`: show context menu only, no forced default-open. |
 
 Example `settings.json`:
 
 ```jsonc
 {
-  "openInIntegratedBrowser.extensions": [
-    "html", "htm", "pdf", "svg", "xml"
-  ]
+  "openInIntegratedBrowser.autoAssociateAsDefaultByExtension": {
+    "html": true,
+    "htm": true,
+    "pdf": true,
+    "svg": true,
+    "xml": false,
+    "xsl": true
+  }
 }
 ```
 

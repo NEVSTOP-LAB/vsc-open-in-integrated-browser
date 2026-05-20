@@ -57,21 +57,21 @@
     "menus": {
       "explorer/context": [
         {
-          "when": "resourceExtname == '.html' || resourceExtname == '.htm' || resourceExtname == '.pdf' || resourceExtname == '.svg' || resourceExtname == '.xml' || resourceExtname == '.xsl' || resourceExtname in openInIntegratedBrowser.supportedExtnames",
+          "when": "resourceExtname in openInIntegratedBrowser.supportedExtnames",
           "command": "openInIntegratedBrowser.open",
           "group": "navigation@99"
         }
       ],
       "editor/title/context": [
         {
-          "when": "resourceExtname == '.html' || resourceExtname == '.htm' || resourceExtname == '.pdf' || resourceExtname == '.svg' || resourceExtname == '.xml' || resourceExtname == '.xsl' || resourceExtname in openInIntegratedBrowser.supportedExtnames",
+          "when": "resourceExtname in openInIntegratedBrowser.supportedExtnames",
           "command": "openInIntegratedBrowser.open",
           "group": "1_open@99"
         }
       ],
       "editor/context": [
         {
-          "when": "resourceExtname == '.html' || resourceExtname == '.htm' || resourceExtname == '.pdf' || resourceExtname == '.svg' || resourceExtname == '.xml' || resourceExtname == '.xsl' || resourceExtname in openInIntegratedBrowser.supportedExtnames",
+          "when": "resourceExtname in openInIntegratedBrowser.supportedExtnames",
           "command": "openInIntegratedBrowser.open",
           "group": "navigation@99"
         }
@@ -79,43 +79,27 @@
       "commandPalette": [
         {
           "command": "openInIntegratedBrowser.open",
-          "when": "resourceExtname == '.html' || resourceExtname == '.htm' || resourceExtname == '.pdf' || resourceExtname == '.svg' || resourceExtname == '.xml' || resourceExtname == '.xsl' || resourceExtname in openInIntegratedBrowser.supportedExtnames"
+          "when": "resourceExtname in openInIntegratedBrowser.supportedExtnames"
         }
       ]
     },
     "configuration": {
       "title": "%configuration.title%",
       "properties": {
-        "openInIntegratedBrowser.extensions": {
-          "type": "array",
-          "items": {
-            "type": "string"
+        "openInIntegratedBrowser.autoAssociateAsDefaultByExtension": {
+          "type": "object",
+          "default": {
+            "html": true,
+            "htm": true,
+            "pdf": true,
+            "svg": true,
+            "xml": true,
+            "xsl": true
           },
-          "uniqueItems": true,
-          "default": [
-            "html",
-            "htm",
-            "pdf",
-            "svg",
-            "xml",
-            "xsl"
-          ],
-          "markdownDescription": "%configuration.extensions.description%"
-        },
-        "openInIntegratedBrowser.autoAssociateExtensions": {
-          "type": "array",
-          "items": {
-            "type": "string"
+          "additionalProperties": {
+            "type": "boolean"
           },
-          "uniqueItems": true,
-          "default": [],
-          "markdownDescription": "%configuration.autoAssociateExtensions.description%"
-        },
-        "openInIntegratedBrowser.setHtmlAsDefaultEditor": {
-          "type": "boolean",
-          "default": true,
-          "scope": "application",
-          "markdownDescription": "%configuration.setHtmlAsDefaultEditor.description%"
+          "markdownDescription": "%configuration.autoAssociateAsDefaultByExtension.description%"
         }
       }
     }
