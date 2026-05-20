@@ -2,7 +2,7 @@
   "name": "vsc-open-in-integrated-browser",
   "displayName": "%extension.displayName%",
   "description": "%extension.description%",
-  "version": "0.0.1",
+  "version": "2026.5.19",
   "license": "MIT",
   "publisher": "NEVSTOP-LAB",
   "icon": "images/icon.png",
@@ -33,8 +33,7 @@
     "Visualization"
   ],
   "activationEvents": [
-    "onCustomEditor:openInIntegratedBrowser.integratedBrowserEditor",
-    "onCommand:openInIntegratedBrowser.open"
+    "onStartupFinished"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -87,36 +86,20 @@
     "configuration": {
       "title": "%configuration.title%",
       "properties": {
-        "openInIntegratedBrowser.extensions": {
-          "type": "array",
-          "items": {
-            "type": "string"
+        "openInIntegratedBrowser.autoAssociateAsDefaultByExtension": {
+          "type": "object",
+          "default": {
+            "html": true,
+            "htm": true,
+            "pdf": true,
+            "svg": true,
+            "xml": true,
+            "xsl": true
           },
-          "uniqueItems": true,
-          "default": [
-            "html",
-            "htm",
-            "pdf",
-            "svg",
-            "xml",
-            "xsl"
-          ],
-          "markdownDescription": "%configuration.extensions.description%"
-        },
-        "openInIntegratedBrowser.autoAssociateExtensions": {
-          "type": "array",
-          "items": {
-            "type": "string"
+          "additionalProperties": {
+            "type": "boolean"
           },
-          "uniqueItems": true,
-          "default": [],
-          "markdownDescription": "%configuration.autoAssociateExtensions.description%"
-        },
-        "openInIntegratedBrowser.setHtmlAsDefaultEditor": {
-          "type": "boolean",
-          "default": true,
-          "scope": "application",
-          "markdownDescription": "%configuration.setHtmlAsDefaultEditor.description%"
+          "markdownDescription": "%configuration.autoAssociateAsDefaultByExtension.description%"
         }
       }
     }

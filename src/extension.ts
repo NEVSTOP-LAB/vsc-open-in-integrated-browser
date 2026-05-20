@@ -1,48 +1,67 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { statSync } from 'fs';
 
 import { vscodeApi } from './vscodeApi';
 
 const COMMAND_ID = 'openInIntegratedBrowser.open';
 const CONFIG_SECTION = 'openInIntegratedBrowser';
-const CONFIG_KEY = 'extensions';
-const CONFIG_DEFAULT_HTML_EDITOR_KEY = 'setHtmlAsDefaultEditor';
-const CONFIG_AUTO_ASSOCIATE_KEY = 'autoAssociateExtensions';
+const CONFIG_ASSOCIATE_BY_EXTENSION_KEY =
+  'autoAssociateAsDefaultByExtension';
 const CONTEXT_KEY = 'openInIntegratedBrowser.supportedExtnames';
 const WORKBENCH_CONFIG_SECTION = 'workbench';
 const WORKBENCH_EDITOR_ASSOCIATIONS_KEY = 'editorAssociations';
 const SIMPLE_BROWSER_VIEW_TYPE = 'simpleBrowser.view';
 const INTEGRATED_BROWSER_EDITOR_VIEW_TYPE =
   'openInIntegratedBrowser.integratedBrowserEditor';
-const HTML_FILE_PATTERN = '*.html';
-const INITIALIZED_DEFAULT_ASSOCIATION_KEY =
-  'openInIntegratedBrowser.defaultHtmlAssociationInitialized';
+const AUTO_ASSOC_EDITOR_VIEW_TYPE = INTEGRATED_BROWSER_EDITOR_VIEW_TYPE;
 const MANAGED_AUTO_ASSOC_STATE_KEY =
   'openInIntegratedBrowser.managedAutoAssociations';
+const OUTPUT_CHANNEL_NAME = 'Open in Integrated Browser';
 
 /** Module-level context reference, set during activation and used in deactivate. */
 let moduleContext: vscode.ExtensionContext | undefined;
+let outputChannel: vscode.OutputChannel | undefined;
+
+function getBuildStamp(): string {
+  try {
+    const mtime = statSync(__filename).mtime;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${mtime.getFullYear()}${pad(mtime.getMonth() + 1)}${pad(mtime.getDate())}-${pad(mtime.getHours())}${pad(mtime.getMinutes())}${pad(mtime.getSeconds())}`;
+  } catch {
+    return 'unknown';
+  }
+}
+
+function logDevBuildInfo(context: vscode.ExtensionContext): void {
+  if (context.extensionMode !== vscode.ExtensionMode.Development) {
+    return;
+  }
+
+  if (!outputChannel) {
+    outputChannel = vscode.window.createOutputChannel(OUTPUT_CHANNEL_NAME);
+    context.subscriptions.push(outputChannel);
+  }
+
+  const build = getBuildStamp();
+  const message = vscode.l10n.t(
+    'Open in Integrated Browser loaded (dev build {0}).',
+    build,
+  );
+  outputChannel.appendLine(message);
+  void vscode.window.showInformationMessage(message);
+}
 
 /**
  * Read user-configured file extensions and normalize them to the form
  * `resourceExtname` uses in `when` clauses (lowercase, leading dot).
  */
 export function getSupportedExtnames(): string[] {
-  const raw = vscode.workspace
-    .getConfiguration(CONFIG_SECTION)
-    .get<string[]>(CONFIG_KEY, []);
-
-  if (!Array.isArray(raw)) {
-    return [];
-  }
-
+  const raw = getAutoAssociateAsDefaultMap();
   const seen = new Set<string>();
   const result: string[] = [];
-  for (const item of raw) {
-    if (typeof item !== 'string') {
-      continue;
-    }
-    const trimmed = item.trim().toLowerCase();
+  for (const item of Object.keys(raw)) {
+    const trimmed = item.toLowerCase();
     if (!trimmed) {
       continue;
     }
@@ -56,31 +75,110 @@ export function getSupportedExtnames(): string[] {
 }
 
 /**
- * Read user-configured auto-associate extensions and normalize them to plain
- * lowercase extension names without a leading dot (e.g. `['html', 'pdf']`).
+ * Read managed file extensions from per-extension checkbox map and normalize
+ * them to plain lowercase extension names without a leading dot.
  */
 export function getAutoAssociateExtnames(): string[] {
+  return Object.keys(getAutoAssociateAsDefaultMap());
+}
+
+export function getAutoAssociateAsDefaultMap(): Record<string, boolean> {
   const raw = vscode.workspace
     .getConfiguration(CONFIG_SECTION)
-    .get<string[]>(CONFIG_AUTO_ASSOCIATE_KEY, []);
+    .get<Record<string, unknown>>(CONFIG_ASSOCIATE_BY_EXTENSION_KEY, {});
 
-  if (!Array.isArray(raw)) {
-    return [];
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return {};
   }
 
-  const seen = new Set<string>();
-  const result: string[] = [];
-  for (const item of raw) {
-    if (typeof item !== 'string') {
+  const result: Record<string, boolean> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (typeof value !== 'boolean') {
       continue;
     }
-    const trimmed = item.trim().toLowerCase().replace(/^\./, '');
-    if (trimmed && !seen.has(trimmed)) {
-      seen.add(trimmed);
-      result.push(trimmed);
+    const normalized = key.trim().toLowerCase().replace(/^\./, '');
+    if (!normalized) {
+      continue;
     }
+    result[normalized] = value;
   }
   return result;
+}
+
+export function getEffectiveAutoAssociateExtnames(
+  extnames: string[],
+  asDefaultMap: Record<string, boolean>,
+): string[] {
+  return extnames.filter((ext) => asDefaultMap[ext] ?? true);
+}
+
+function getPreferredConfigTarget(key: string): vscode.ConfigurationTarget {
+  const inspected = vscode.workspace
+    .getConfiguration(CONFIG_SECTION)
+    .inspect<unknown>(key);
+
+  if (inspected?.workspaceValue !== undefined) {
+    return vscode.ConfigurationTarget.Workspace;
+  }
+  if (inspected?.globalValue !== undefined) {
+    return vscode.ConfigurationTarget.Global;
+  }
+
+  return vscode.ConfigurationTarget.Workspace;
+}
+
+function getAssociatedExtnamesForViewType(
+  associations: Record<string, string>,
+  viewType: string,
+): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const [pattern, value] of Object.entries(associations)) {
+    if (value !== viewType) {
+      continue;
+    }
+
+    const match = pattern.match(/^\*\.([a-z0-9_+-]+)$/i);
+    if (!match) {
+      continue;
+    }
+
+    const ext = match[1].toLowerCase();
+    if (!seen.has(ext)) {
+      seen.add(ext);
+      result.push(ext);
+    }
+  }
+
+  return result;
+}
+
+async function syncAutoAssociateSettingFromEditorAssociations(): Promise<void> {
+  const associations = getEditorAssociations();
+  const associatedExtnames = getAssociatedExtnamesForViewType(
+    associations,
+    INTEGRATED_BROWSER_EDITOR_VIEW_TYPE,
+  );
+  const currentMap = getAutoAssociateAsDefaultMap();
+  const nextMap = { ...currentMap };
+  let mapChanged = false;
+  for (const ext of associatedExtnames) {
+    if (nextMap[ext] !== true) {
+      nextMap[ext] = true;
+      mapChanged = true;
+    }
+  }
+
+  if (mapChanged) {
+    await vscode.workspace
+      .getConfiguration(CONFIG_SECTION)
+      .update(
+        CONFIG_ASSOCIATE_BY_EXTENSION_KEY,
+        nextMap,
+        getPreferredConfigTarget(CONFIG_ASSOCIATE_BY_EXTENSION_KEY),
+      );
+  }
 }
 
 /**
@@ -99,24 +197,88 @@ export function getNextAutoAssociations(
   const prevPatterns = new Set(prevExtnames.map((ext) => `*.${ext}`));
 
   for (const pattern of prevPatterns) {
-    if (!newPatterns.has(pattern) && next[pattern] === INTEGRATED_BROWSER_EDITOR_VIEW_TYPE) {
+    if (
+      !newPatterns.has(pattern) &&
+      (next[pattern] === AUTO_ASSOC_EDITOR_VIEW_TYPE ||
+        next[pattern] === INTEGRATED_BROWSER_EDITOR_VIEW_TYPE)
+    ) {
       delete next[pattern];
     }
   }
 
   for (const pattern of newPatterns) {
-    next[pattern] = INTEGRATED_BROWSER_EDITOR_VIEW_TYPE;
+    next[pattern] = AUTO_ASSOC_EDITOR_VIEW_TYPE;
   }
 
   return next;
 }
 
-async function applyAutoAssociations(context: vscode.ExtensionContext): Promise<void> {
-  const newExtnames = getAutoAssociateExtnames();
-  const prevExtnames = context.globalState.get<string[]>(MANAGED_AUTO_ASSOC_STATE_KEY, []);
+function getManagedAssociationPatterns(autoAssociateExtnames: string[]): Set<string> {
+  const patterns = new Set(autoAssociateExtnames.map((ext) => `*.${ext}`));
+  return patterns;
+}
+
+export function getMigratedAssociations(
+  current: Record<string, string>,
+  managedPatterns: Set<string>,
+): Record<string, string> {
+  const next = { ...current };
+  for (const [pattern, viewType] of Object.entries(current)) {
+    if (managedPatterns.has(pattern) && viewType === SIMPLE_BROWSER_VIEW_TYPE) {
+      next[pattern] = INTEGRATED_BROWSER_EDITOR_VIEW_TYPE;
+    }
+  }
+  return next;
+}
+
+async function migrateLegacyEditorAssociations(): Promise<void> {
+  const defaultMap = getAutoAssociateAsDefaultMap();
+  const managedPatterns = getManagedAssociationPatterns(
+    getEffectiveAutoAssociateExtnames(getAutoAssociateExtnames(), defaultMap),
+  );
 
   const currentAssociations = getEditorAssociations();
-  const nextAssociations = getNextAutoAssociations(currentAssociations, prevExtnames, newExtnames);
+  const nextAssociations = getMigratedAssociations(
+    currentAssociations,
+    managedPatterns,
+  );
+
+  if (!hasAssociationChanges(currentAssociations, nextAssociations)) {
+    return;
+  }
+
+  // Determine the target scope based on where the current associations are stored.
+  // WorkspaceFolder scope is not migrated (would require a folder URI).
+  const inspected = vscode.workspace
+    .getConfiguration(WORKBENCH_CONFIG_SECTION)
+    .inspect<unknown>(WORKBENCH_EDITOR_ASSOCIATIONS_KEY);
+
+  const target =
+    inspected?.workspaceValue !== undefined
+      ? vscode.ConfigurationTarget.Workspace
+      : vscode.ConfigurationTarget.Global;
+
+  await vscode.workspace
+    .getConfiguration(WORKBENCH_CONFIG_SECTION)
+    .update(
+      WORKBENCH_EDITOR_ASSOCIATIONS_KEY,
+      nextAssociations,
+      target,
+    );
+}
+
+async function applyAutoAssociations(context: vscode.ExtensionContext): Promise<void> {
+  const asDefaultMap = getAutoAssociateAsDefaultMap();
+  const newExtnames = Object.keys(asDefaultMap);
+  const prevExtnames = context.globalState.get<string[]>(MANAGED_AUTO_ASSOC_STATE_KEY, []);
+  const effectiveExtnames = getEffectiveAutoAssociateExtnames(newExtnames, asDefaultMap);
+
+  const currentAssociations = getEditorAssociations();
+  const nextAssociations = getNextAutoAssociations(
+    currentAssociations,
+    prevExtnames,
+    effectiveExtnames,
+  );
 
   if (hasAssociationChanges(currentAssociations, nextAssociations)) {
     await vscode.workspace
@@ -128,7 +290,7 @@ async function applyAutoAssociations(context: vscode.ExtensionContext): Promise<
       );
   }
 
-  await context.globalState.update(MANAGED_AUTO_ASSOC_STATE_KEY, newExtnames);
+  await context.globalState.update(MANAGED_AUTO_ASSOC_STATE_KEY, effectiveExtnames);
 }
 
 function getEditorAssociations(): Record<string, string> {
@@ -149,23 +311,6 @@ function getEditorAssociations(): Record<string, string> {
   return result;
 }
 
-export function getNextHtmlEditorAssociations(
-  current: Record<string, string>,
-  useIntegratedBrowser: boolean,
-): Record<string, string> {
-  const next = { ...current };
-
-  if (useIntegratedBrowser) {
-    next[HTML_FILE_PATTERN] = INTEGRATED_BROWSER_EDITOR_VIEW_TYPE;
-    return next;
-  }
-
-  if (next[HTML_FILE_PATTERN] === INTEGRATED_BROWSER_EDITOR_VIEW_TYPE) {
-    delete next[HTML_FILE_PATTERN];
-  }
-  return next;
-}
-
 function hasAssociationChanges(
   current: Record<string, string>,
   next: Record<string, string>,
@@ -176,44 +321,6 @@ function hasAssociationChanges(
     return true;
   }
   return nextKeys.some((key) => current[key] !== next[key]);
-}
-
-async function applyHtmlEditorAssociationFromSetting(): Promise<void> {
-  const useIntegratedBrowser = vscode.workspace
-    .getConfiguration(CONFIG_SECTION)
-    .get<boolean>(CONFIG_DEFAULT_HTML_EDITOR_KEY, true);
-
-  const currentAssociations = getEditorAssociations();
-  const nextAssociations = getNextHtmlEditorAssociations(
-    currentAssociations,
-    useIntegratedBrowser,
-  );
-  if (!hasAssociationChanges(currentAssociations, nextAssociations)) {
-    return;
-  }
-
-  await vscode.workspace
-    .getConfiguration(WORKBENCH_CONFIG_SECTION)
-    .update(
-      WORKBENCH_EDITOR_ASSOCIATIONS_KEY,
-      nextAssociations,
-      vscode.ConfigurationTarget.Global,
-    );
-}
-
-async function initializeDefaultHtmlAssociation(
-  context: vscode.ExtensionContext,
-): Promise<void> {
-  const initialized = context.globalState.get<boolean>(
-    INITIALIZED_DEFAULT_ASSOCIATION_KEY,
-    false,
-  );
-  if (initialized) {
-    return;
-  }
-
-  await applyHtmlEditorAssociationFromSetting();
-  await context.globalState.update(INITIALIZED_DEFAULT_ASSOCIATION_KEY, true);
 }
 
 async function updateContextKey(): Promise<void> {
@@ -299,21 +406,16 @@ export function getIntegratedBrowserWebviewHtml(src: string): string {
 
 export function getNextDeactivationAssociations(
   current: Record<string, string>,
-  initializedDefaultHtmlAssociation: boolean,
   managedAutoExtnames: string[],
 ): Record<string, string> {
   const next = { ...current };
 
-  if (
-    initializedDefaultHtmlAssociation &&
-    next[HTML_FILE_PATTERN] === INTEGRATED_BROWSER_EDITOR_VIEW_TYPE
-  ) {
-    delete next[HTML_FILE_PATTERN];
-  }
-
   for (const ext of managedAutoExtnames) {
     const pattern = `*.${ext}`;
-    if (next[pattern] === INTEGRATED_BROWSER_EDITOR_VIEW_TYPE) {
+    if (
+      next[pattern] === AUTO_ASSOC_EDITOR_VIEW_TYPE ||
+      next[pattern] === INTEGRATED_BROWSER_EDITOR_VIEW_TYPE
+    ) {
       delete next[pattern];
     }
   }
@@ -329,6 +431,14 @@ function registerIntegratedBrowserEditor(context: vscode.ExtensionContext): void
       document: IntegratedBrowserDocument,
       webviewPanel: vscode.WebviewPanel,
     ) => {
+      // Keep behavior consistent with the command: if Simple Browser is available,
+      // open there and close this custom editor panel immediately.
+      const opened = await openInSimpleBrowser(document.uri);
+      if (opened) {
+        webviewPanel.dispose();
+        return;
+      }
+
       webviewPanel.webview.options = {
         enableScripts: true,
         localResourceRoots: getLocalResourceRoots(document.uri),
@@ -353,9 +463,22 @@ function registerIntegratedBrowserEditor(context: vscode.ExtensionContext): void
   );
 }
 
+async function openInSimpleBrowser(uri: vscode.Uri): Promise<boolean> {
+  try {
+    await vscodeApi.executeCommand('simpleBrowser.api.open', uri, {
+      preserveFocus: false,
+      viewColumn: vscode.ViewColumn.Beside,
+    });
+    return true;
+  } catch (err) {
+    console.error('[OpenInIntegratedBrowser] simpleBrowser.api.open failed:', err);
+    return false;
+  }
+}
+
 /**
  * Open the given resource in the VS Code built-in Simple Browser.
- * Falls back to `vscode.open` if the Simple Browser API is unavailable.
+ * Falls back to `vscode.openWith` with the `default` view type if the Simple Browser API is unavailable.
  */
 export async function openInIntegratedBrowser(
   uri: vscode.Uri | undefined,
@@ -371,21 +494,17 @@ export async function openInIntegratedBrowser(
     return;
   }
 
-  try {
-    // simpleBrowser.api.open accepts a URI/string and opens it in a webview.
-    await vscodeApi.executeCommand('simpleBrowser.api.open', target, {
-      preserveFocus: false,
-      viewColumn: vscode.ViewColumn.Beside,
-    });
-  } catch (err) {
-    console.error('[OpenInIntegratedBrowser] simpleBrowser.api.open failed, falling back to vscode.open:', err);
-    // Fallback: vscode.open opens with the default editor for the resource.
-    await vscodeApi.executeCommand('vscode.open', target);
+  const opened = await openInSimpleBrowser(target);
+  if (!opened) {
+    console.error('[OpenInIntegratedBrowser] falling back to vscode.openWith with default view type.');
+    // Avoid recursive fallback when this extension is the default editor.
+    await vscodeApi.executeCommand('vscode.openWith', target, 'default');
   }
 }
 
 export function activate(context: vscode.ExtensionContext): void {
   moduleContext = context;
+  logDevBuildInfo(context);
   registerIntegratedBrowserEditor(context);
 
   context.subscriptions.push(
@@ -394,24 +513,24 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration(`${CONFIG_SECTION}.${CONFIG_KEY}`)) {
+      if (e.affectsConfiguration(`${CONFIG_SECTION}.${CONFIG_ASSOCIATE_BY_EXTENSION_KEY}`)) {
         void updateContextKey();
+        void applyAutoAssociations(context);
       }
       if (
         e.affectsConfiguration(
-          `${CONFIG_SECTION}.${CONFIG_DEFAULT_HTML_EDITOR_KEY}`,
+          `${WORKBENCH_CONFIG_SECTION}.${WORKBENCH_EDITOR_ASSOCIATIONS_KEY}`,
         )
       ) {
-        void applyHtmlEditorAssociationFromSetting();
-      }
-      if (e.affectsConfiguration(`${CONFIG_SECTION}.${CONFIG_AUTO_ASSOCIATE_KEY}`)) {
-        void applyAutoAssociations(context);
+        void syncAutoAssociateSettingFromEditorAssociations();
+        void migrateLegacyEditorAssociations();
       }
     }),
   );
 
   void updateContextKey();
-  void initializeDefaultHtmlAssociation(context);
+  void syncAutoAssociateSettingFromEditorAssociations();
+  void migrateLegacyEditorAssociations();
   void applyAutoAssociations(context);
 }
 
