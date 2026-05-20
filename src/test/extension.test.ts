@@ -6,6 +6,7 @@ import {
   getAutoAssociateExtnames,
   getIntegratedBrowserWebviewHtml,
   getLocalResourceRootPaths,
+  getMigratedAssociations,
   getNextAutoAssociations,
   getNextDeactivationAssociations,
   getNextHtmlEditorAssociations,
@@ -20,6 +21,7 @@ const CONFIG_SECTION = 'openInIntegratedBrowser';
 const CONFIG_KEY = 'extensions';
 const CONFIG_DEFAULT_HTML_EDITOR_KEY = 'setHtmlAsDefaultEditor';
 const CONFIG_AUTO_ASSOCIATE_KEY = 'autoAssociateExtensions';
+const SIMPLE_BROWSER_VIEW_TYPE = 'simpleBrowser.view';
 const INTEGRATED_BROWSER_EDITOR_VIEW_TYPE =
   'openInIntegratedBrowser.integratedBrowserEditor';
 
@@ -136,7 +138,7 @@ suite('Open in Integrated Browser', () => {
     );
   });
 
-  test('openInIntegratedBrowser falls back to vscode.open when Simple Browser fails', async () => {
+  test('openInIntegratedBrowser falls back to vscode.openWith when Simple Browser fails', async () => {
     const original = vscodeApi.executeCommand;
     const calls: string[] = [];
 
@@ -145,7 +147,7 @@ suite('Open in Integrated Browser', () => {
       if (command === 'simpleBrowser.api.open') {
         throw new Error('simulated failure');
       }
-      if (command === 'vscode.open') {
+      if (command === 'vscode.openWith') {
         return undefined;
       }
       return original(command, ...args);
@@ -159,7 +161,7 @@ suite('Open in Integrated Browser', () => {
     }
 
     assert.ok(calls.includes('simpleBrowser.api.open'));
-    assert.ok(calls.includes('vscode.open'));
+    assert.ok(calls.includes('vscode.openWith'));
   });
 
   test('getNextHtmlEditorAssociations sets *.html to integrated browser editor when enabled', () => {
@@ -238,6 +240,21 @@ suite('Open in Integrated Browser', () => {
     });
   });
 
+  test('getMigratedAssociations rewrites managed simple browser mappings to integrated browser editor', () => {
+    const current = {
+      '*.html': SIMPLE_BROWSER_VIEW_TYPE,
+      '*.pdf': SIMPLE_BROWSER_VIEW_TYPE,
+      '*.xml': 'default',
+    };
+    const managedPatterns = new Set(['*.html']);
+    const next = getMigratedAssociations(current, managedPatterns);
+    assert.deepStrictEqual(next, {
+      '*.html': INTEGRATED_BROWSER_EDITOR_VIEW_TYPE,
+      '*.pdf': SIMPLE_BROWSER_VIEW_TYPE,
+      '*.xml': 'default',
+    });
+  });
+
   test('getIntegratedBrowserWebviewHtml uses a safe iframe sandbox', () => {
     const html = getIntegratedBrowserWebviewHtml('https://example.invalid/');
     assert.ok(html.includes('sandbox="allow-scripts allow-forms"'));
@@ -264,9 +281,10 @@ suite('Open in Integrated Browser', () => {
     const current = {
       '*.html': INTEGRATED_BROWSER_EDITOR_VIEW_TYPE,
       '*.pdf': INTEGRATED_BROWSER_EDITOR_VIEW_TYPE,
+      '*.xsl': INTEGRATED_BROWSER_EDITOR_VIEW_TYPE,
       '*.svg': 'some.other.editor',
     };
-    const next = getNextDeactivationAssociations(current, true, ['pdf', 'svg']);
+    const next = getNextDeactivationAssociations(current, true, ['pdf', 'svg', 'xsl']);
     assert.deepStrictEqual(next, {
       '*.svg': 'some.other.editor',
     });

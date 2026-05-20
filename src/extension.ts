@@ -15,9 +15,9 @@ const WORKBENCH_EDITOR_ASSOCIATIONS_KEY = 'editorAssociations';
 const SIMPLE_BROWSER_VIEW_TYPE = 'simpleBrowser.view';
 const INTEGRATED_BROWSER_EDITOR_VIEW_TYPE =
   'openInIntegratedBrowser.integratedBrowserEditor';
+const HTML_DEFAULT_EDITOR_VIEW_TYPE = INTEGRATED_BROWSER_EDITOR_VIEW_TYPE;
+const AUTO_ASSOC_EDITOR_VIEW_TYPE = INTEGRATED_BROWSER_EDITOR_VIEW_TYPE;
 const HTML_FILE_PATTERN = '*.html';
-const INITIALIZED_DEFAULT_ASSOCIATION_KEY =
-  'openInIntegratedBrowser.defaultHtmlAssociationInitialized';
 const MANAGED_AUTO_ASSOC_STATE_KEY =
   'openInIntegratedBrowser.managedAutoAssociations';
 const OUTPUT_CHANNEL_NAME = 'Open in Integrated Browser';
@@ -131,16 +131,72 @@ export function getNextAutoAssociations(
   const prevPatterns = new Set(prevExtnames.map((ext) => `*.${ext}`));
 
   for (const pattern of prevPatterns) {
-    if (!newPatterns.has(pattern) && next[pattern] === INTEGRATED_BROWSER_EDITOR_VIEW_TYPE) {
+    if (
+      !newPatterns.has(pattern) &&
+      (next[pattern] === AUTO_ASSOC_EDITOR_VIEW_TYPE ||
+        next[pattern] === INTEGRATED_BROWSER_EDITOR_VIEW_TYPE)
+    ) {
       delete next[pattern];
     }
   }
 
   for (const pattern of newPatterns) {
-    next[pattern] = INTEGRATED_BROWSER_EDITOR_VIEW_TYPE;
+    next[pattern] = AUTO_ASSOC_EDITOR_VIEW_TYPE;
   }
 
   return next;
+}
+
+function getManagedAssociationPatterns(
+  includeHtml: boolean,
+  autoAssociateExtnames: string[],
+): Set<string> {
+  const patterns = new Set(autoAssociateExtnames.map((ext) => `*.${ext}`));
+  if (includeHtml) {
+    patterns.add(HTML_FILE_PATTERN);
+  }
+  return patterns;
+}
+
+export function getMigratedAssociations(
+  current: Record<string, string>,
+  managedPatterns: Set<string>,
+): Record<string, string> {
+  const next = { ...current };
+  for (const [pattern, viewType] of Object.entries(current)) {
+    if (managedPatterns.has(pattern) && viewType === SIMPLE_BROWSER_VIEW_TYPE) {
+      next[pattern] = INTEGRATED_BROWSER_EDITOR_VIEW_TYPE;
+    }
+  }
+  return next;
+}
+
+async function migrateLegacyEditorAssociations(): Promise<void> {
+  const includeHtml = vscode.workspace
+    .getConfiguration(CONFIG_SECTION)
+    .get<boolean>(CONFIG_DEFAULT_HTML_EDITOR_KEY, true);
+  const managedPatterns = getManagedAssociationPatterns(
+    includeHtml,
+    getAutoAssociateExtnames(),
+  );
+
+  const currentAssociations = getEditorAssociations();
+  const nextAssociations = getMigratedAssociations(
+    currentAssociations,
+    managedPatterns,
+  );
+
+  if (!hasAssociationChanges(currentAssociations, nextAssociations)) {
+    return;
+  }
+
+  await vscode.workspace
+    .getConfiguration(WORKBENCH_CONFIG_SECTION)
+    .update(
+      WORKBENCH_EDITOR_ASSOCIATIONS_KEY,
+      nextAssociations,
+      vscode.ConfigurationTarget.Global,
+    );
 }
 
 async function applyAutoAssociations(context: vscode.ExtensionContext): Promise<void> {
@@ -188,11 +244,14 @@ export function getNextHtmlEditorAssociations(
   const next = { ...current };
 
   if (useIntegratedBrowser) {
-    next[HTML_FILE_PATTERN] = INTEGRATED_BROWSER_EDITOR_VIEW_TYPE;
+    next[HTML_FILE_PATTERN] = HTML_DEFAULT_EDITOR_VIEW_TYPE;
     return next;
   }
 
-  if (next[HTML_FILE_PATTERN] === INTEGRATED_BROWSER_EDITOR_VIEW_TYPE) {
+  if (
+    next[HTML_FILE_PATTERN] === HTML_DEFAULT_EDITOR_VIEW_TYPE ||
+    next[HTML_FILE_PATTERN] === INTEGRATED_BROWSER_EDITOR_VIEW_TYPE
+  ) {
     delete next[HTML_FILE_PATTERN];
   }
   return next;
@@ -231,21 +290,6 @@ async function applyHtmlEditorAssociationFromSetting(): Promise<void> {
       nextAssociations,
       vscode.ConfigurationTarget.Global,
     );
-}
-
-async function initializeDefaultHtmlAssociation(
-  context: vscode.ExtensionContext,
-): Promise<void> {
-  const initialized = context.globalState.get<boolean>(
-    INITIALIZED_DEFAULT_ASSOCIATION_KEY,
-    false,
-  );
-  if (initialized) {
-    return;
-  }
-
-  await applyHtmlEditorAssociationFromSetting();
-  await context.globalState.update(INITIALIZED_DEFAULT_ASSOCIATION_KEY, true);
 }
 
 async function updateContextKey(): Promise<void> {
@@ -338,14 +382,18 @@ export function getNextDeactivationAssociations(
 
   if (
     initializedDefaultHtmlAssociation &&
-    next[HTML_FILE_PATTERN] === INTEGRATED_BROWSER_EDITOR_VIEW_TYPE
+    (next[HTML_FILE_PATTERN] === HTML_DEFAULT_EDITOR_VIEW_TYPE ||
+      next[HTML_FILE_PATTERN] === INTEGRATED_BROWSER_EDITOR_VIEW_TYPE)
   ) {
     delete next[HTML_FILE_PATTERN];
   }
 
   for (const ext of managedAutoExtnames) {
     const pattern = `*.${ext}`;
-    if (next[pattern] === INTEGRATED_BROWSER_EDITOR_VIEW_TYPE) {
+    if (
+      next[pattern] === AUTO_ASSOC_EDITOR_VIEW_TYPE ||
+      next[pattern] === INTEGRATED_BROWSER_EDITOR_VIEW_TYPE
+    ) {
       delete next[pattern];
     }
   }
@@ -361,6 +409,14 @@ function registerIntegratedBrowserEditor(context: vscode.ExtensionContext): void
       document: IntegratedBrowserDocument,
       webviewPanel: vscode.WebviewPanel,
     ) => {
+      // Keep behavior consistent with the command: if Simple Browser is available,
+      // open there and close this custom editor panel immediately.
+      const opened = await openInSimpleBrowser(document.uri);
+      if (opened) {
+        webviewPanel.dispose();
+        return;
+      }
+
       webviewPanel.webview.options = {
         enableScripts: true,
         localResourceRoots: getLocalResourceRoots(document.uri),
@@ -385,6 +441,19 @@ function registerIntegratedBrowserEditor(context: vscode.ExtensionContext): void
   );
 }
 
+async function openInSimpleBrowser(uri: vscode.Uri): Promise<boolean> {
+  try {
+    await vscodeApi.executeCommand('simpleBrowser.api.open', uri, {
+      preserveFocus: false,
+      viewColumn: vscode.ViewColumn.Beside,
+    });
+    return true;
+  } catch (err) {
+    console.error('[OpenInIntegratedBrowser] simpleBrowser.api.open failed:', err);
+    return false;
+  }
+}
+
 /**
  * Open the given resource in the VS Code built-in Simple Browser.
  * Falls back to `vscode.open` if the Simple Browser API is unavailable.
@@ -403,16 +472,11 @@ export async function openInIntegratedBrowser(
     return;
   }
 
-  try {
-    // simpleBrowser.api.open accepts a URI/string and opens it in a webview.
-    await vscodeApi.executeCommand('simpleBrowser.api.open', target, {
-      preserveFocus: false,
-      viewColumn: vscode.ViewColumn.Beside,
-    });
-  } catch (err) {
-    console.error('[OpenInIntegratedBrowser] simpleBrowser.api.open failed, falling back to vscode.open:', err);
-    // Fallback: vscode.open opens with the default editor for the resource.
-    await vscodeApi.executeCommand('vscode.open', target);
+  const opened = await openInSimpleBrowser(target);
+  if (!opened) {
+    console.error('[OpenInIntegratedBrowser] falling back to vscode.open.');
+    // Avoid recursive fallback when this extension is the default editor.
+    await vscodeApi.executeCommand('vscode.openWith', target, 'default');
   }
 }
 
@@ -440,11 +504,19 @@ export function activate(context: vscode.ExtensionContext): void {
       if (e.affectsConfiguration(`${CONFIG_SECTION}.${CONFIG_AUTO_ASSOCIATE_KEY}`)) {
         void applyAutoAssociations(context);
       }
+      if (
+        e.affectsConfiguration(
+          `${WORKBENCH_CONFIG_SECTION}.${WORKBENCH_EDITOR_ASSOCIATIONS_KEY}`,
+        )
+      ) {
+        void migrateLegacyEditorAssociations();
+      }
     }),
   );
 
   void updateContextKey();
-  void initializeDefaultHtmlAssociation(context);
+  void migrateLegacyEditorAssociations();
+  void applyHtmlEditorAssociationFromSetting();
   void applyAutoAssociations(context);
 }
 
