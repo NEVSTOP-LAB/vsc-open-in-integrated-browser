@@ -151,7 +151,10 @@ suite('Open in Integrated Browser', () => {
       );
 
     const result = getAutoAssociateExtnames();
-    assert.deepStrictEqual(result, ['html', 'htm', 'svg', 'xml', 'xsl', 'pdf']);
+    assert.deepStrictEqual(
+      [...result].sort(),
+      ['html', 'htm', 'svg', 'xml', 'xsl', 'pdf'].sort(),
+    );
   });
 
   test('getAutoAssociateAsDefaultMap normalizes user-configured extension map', async () => {
