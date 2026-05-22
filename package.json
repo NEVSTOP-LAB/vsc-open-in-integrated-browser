@@ -91,7 +91,6 @@
           "default": {
             "html": true,
             "htm": true,
-            "pdf": true,
             "svg": true,
             "xml": true,
             "xsl": true
