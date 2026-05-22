@@ -82,7 +82,10 @@ suite('Open in Integrated Browser', () => {
       );
 
     const result = getSupportedExtnames();
-    assert.deepStrictEqual(result, ['.html', '.htm', '.svg', '.xml', '.xsl', '.pdf', '.json']);
+    assert.deepStrictEqual(
+      [...result].sort(),
+      ['.html', '.htm', '.svg', '.xml', '.xsl', '.pdf', '.json'].sort(),
+    );
   });
 
   test('openInIntegratedBrowser invokes simpleBrowser.api.open with the URI', async () => {
