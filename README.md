@@ -19,14 +19,18 @@ A lightweight VS Code extension for opening files directly in VS Code's integrat
 ## Default supported file extensions
 
 ```
-html, htm, pdf, svg, xml, xsl
+html, htm, svg, xml, xsl
 ```
 
 ## Configuration
 
-| Setting | Type | Default | Description |
-| --- | --- | --- | --- |
-| `openInIntegratedBrowser.autoAssociateAsDefaultByExtension` | `Record<string, boolean>` | `{ html: true, htm: true, pdf: true, svg: true, xml: true, xsl: true }` | Per-extension options. Key = extension (without dot). `true`: include this extension and make it open in the integrated browser by default. `false`: include this extension but do not force default open behavior. |
+### `openInIntegratedBrowser.autoAssociateAsDefaultByExtension`
+
+- **Type**: `Record<string, boolean>`
+- **Default**: `{ html: true, htm: true, svg: true, xml: true, xsl: true }`
+- **Description**: Per-extension options. Key = extension (without dot).
+  - `true` — include this extension in the context menu **and** set it as the default editor via `workbench.editorAssociations`.
+  - `false` — include this extension in the context menu but do **not** force default-open behavior.
 
 Example `settings.json`:
 
@@ -35,19 +39,19 @@ Example `settings.json`:
   "openInIntegratedBrowser.autoAssociateAsDefaultByExtension": {
     "html": true,
     "htm": true,
-    "pdf": true,
     "svg": true,
     "xml": false,
-    "xsl": true
+    "xsl": true,
+    "pdf": false
   }
 }
 ```
 
 ## Commands
 
-| Command | Title |
-| --- | --- |
-| `openInIntegratedBrowser.open` | Open in Integrated Browser |
+### `openInIntegratedBrowser.open`
+
+Open the selected file in the integrated browser.
 
 ## License
 

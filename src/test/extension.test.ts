@@ -28,7 +28,6 @@ const INTEGRATED_BROWSER_EDITOR_VIEW_TYPE =
 const DEFAULT_AUTO_ASSOCIATE_DEFAULT_MAP = {
   html: true,
   htm: true,
-  pdf: true,
   svg: true,
   xml: true,
   xsl: true,
@@ -83,7 +82,7 @@ suite('Open in Integrated Browser', () => {
       );
 
     const result = getSupportedExtnames();
-    assert.deepStrictEqual(result, ['.html', '.htm', '.pdf', '.svg', '.xml', '.xsl', '.json']);
+    assert.deepStrictEqual(result, ['.html', '.htm', '.svg', '.xml', '.xsl', '.pdf', '.json']);
   });
 
   test('openInIntegratedBrowser invokes simpleBrowser.api.open with the URI', async () => {
@@ -149,7 +148,7 @@ suite('Open in Integrated Browser', () => {
       );
 
     const result = getAutoAssociateExtnames();
-    assert.deepStrictEqual(result, ['html', 'htm', 'pdf', 'svg', 'xml', 'xsl']);
+    assert.deepStrictEqual(result, ['html', 'htm', 'svg', 'xml', 'xsl', 'pdf']);
   });
 
   test('getAutoAssociateAsDefaultMap normalizes user-configured extension map', async () => {
