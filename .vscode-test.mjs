@@ -2,7 +2,7 @@ import { defineConfig } from '@vscode/test-cli';
 import os from 'os';
 import path from 'path';
 
-const tempRoot = path.join(os.tmpdir(), 'vsc-open-in-integrated-browser-test');
+const tempRoot = path.join(os.tmpdir(), 'oiib-test');
 
 export default defineConfig({
   files: 'out/test/**/*.test.js',
