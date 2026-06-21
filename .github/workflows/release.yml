@@ -23,7 +23,7 @@ jobs:
     outputs:
       deps_cache_key: ${{ steps.deps-cache-key.outputs.key }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: 安装 Node.js
         uses: actions/setup-node@v6
@@ -58,7 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [prepare-deps]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: 安装 Node.js
         uses: actions/setup-node@v6
@@ -87,7 +87,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: 安装 Node.js
         uses: actions/setup-node@v6
@@ -118,7 +118,7 @@ jobs:
       build_version: ${{ steps.version.outputs.build_version }}
       artifact_name: vsc-open-in-integrated-browser-${{ steps.version.outputs.build_version }}-vsix
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: 安装 Node.js
         uses: actions/setup-node@v6
